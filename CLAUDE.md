@@ -64,4 +64,20 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - En el chat de Twitch: emotes nativos como imagen (`fragments` en el evento, parseados con `buildFragments`, con pruebas), mensajes con bits y mensajes destacados con puntos resaltados (`highlight`). Los emotes de 7TV/BTTV/FFZ todavía no se muestran.
 - Servidor local (HTTP + WebSocket en `/ws`, puerto 4848, `PUT /api/config`, `POST /api/twitch/*`) en `src/server.ts`; arranca desde `src/main.ts`. Solo acepta Host y Origin de `localhost`/`127.0.0.1`.
 - Interfaz en `src/ui/`: `app.ts` (chat y alertas), `settings.ts` (pantalla en `#settings`), `index.html` y `styles.css`. Los `.ts` se compilan con `tsconfig.ui.json` a `dist/web`, que el servidor sirve en `/js/`.
+- Logos de plataforma en `src/ui/logos/` (PNG 64 × 64 sin fondo): en mensajes, alertas, pastillas de estado, filtros y tarjetas de configuración.
+- Opción de configuración `window.alertsSide` ("left" | "right") para poner el panel de alertas a un lado u otro del chat. En ventanas angostas las alertas van siempre arriba.
 - Comandos: `npm start` (app), `npm run demo` (app con eventos de prueba), `npm run console`, `npm run typecheck`, `npm test`.
+
+### Pendientes de Twitch (no bloquean la fase 2)
+
+- Emotes de 7TV, BTTV y FFZ (ahora se ven como texto).
+- Probar en un stream real: follows, subs, subs regaladas, bits y raids. Solo se probó en vivo el canje de puntos; las suscripciones de EventSub sí están activas.
+- Probar la renovación real del token (a las ~4 h) y la reconexión tras un corte de internet.
+- Opcional: ocultar o tachar mensajes borrados por moderadores y de usuarios baneados.
+
+### Para la fase 5 (Electron)
+
+- Aplicar "Siempre encima", "Iniciar con Windows" y la opacidad (ya se guardan en la configuración).
+- Cifrar la sesión de Twitch y la clave de Euler con `safeStorage` (ahora van en JSON sin cifrar, solo en la PC del usuario).
+- Incluir el Client ID de Twitch en la app para que el hermano no tenga que configurar `.env`.
+- Abrir la página de autorización con `shell.openExternal` (ahora se usa `rundll32` desde el backend).
