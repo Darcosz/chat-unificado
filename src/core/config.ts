@@ -2,6 +2,7 @@
 // Lo usan el backend y la interfaz, así que no debe importar nada de Node.
 
 export type TextSize = "normal" | "large" | "extra-large";
+export type AlertsSide = "left" | "right";
 
 export interface Config {
   platforms: {
@@ -14,6 +15,8 @@ export interface Config {
     alwaysOnTop: boolean;
     startWithWindows: boolean;
     textSize: TextSize;
+    /** De qué lado del chat va el panel de alertas. */
+    alertsSide: AlertsSide;
     /** De 0.5 a 1. */
     opacity: number;
   };
@@ -40,6 +43,7 @@ export type PublicConfig = Omit<Config, "platforms"> & {
 export type ConfigChanges = PublicConfig & { newEulerKey?: string };
 
 export const TEXT_SIZES: readonly TextSize[] = ["normal", "large", "extra-large"];
+export const ALERTS_SIDES: readonly AlertsSide[] = ["left", "right"];
 
 export function defaultConfig(): Config {
   return {
@@ -49,7 +53,7 @@ export function defaultConfig(): Config {
       youtube: { enabled: true },
       kick: { enabled: true },
     },
-    window: { alwaysOnTop: true, startWithWindows: false, textSize: "normal", opacity: 1 },
+    window: { alwaysOnTop: true, startWithWindows: false, textSize: "normal", alertsSide: "right", opacity: 1 },
     tags: { markNew: true, markQuestion: true, mentions: [] },
     autoUpdate: true,
   };
@@ -112,6 +116,7 @@ export function validateConfig(value: unknown, base: Config = defaultConfig()): 
       alwaysOnTop: asBoolean(window.alwaysOnTop, base.window.alwaysOnTop),
       startWithWindows: asBoolean(window.startWithWindows, base.window.startWithWindows),
       textSize: TEXT_SIZES.includes(window.textSize as TextSize) ? (window.textSize as TextSize) : base.window.textSize,
+      alertsSide: ALERTS_SIDES.includes(window.alertsSide as AlertsSide) ? (window.alertsSide as AlertsSide) : base.window.alertsSide,
       opacity: Math.min(1, Math.max(0.5, opacity)),
     },
     tags: {

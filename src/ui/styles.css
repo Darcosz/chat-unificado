@@ -55,6 +55,7 @@
 [data-category="subscription"] { --cat: #e879f9; }
 [data-category="money"] { --cat: #fde047; }
 [data-category="points"] { --cat: #fb923c; }
+[data-category="raid"] { --cat: #f9a8d4; }
 
 * {
   box-sizing: border-box;
@@ -280,6 +281,20 @@ h1 {
   display: none;
 }
 
+/* Panel de alertas a la izquierda del chat (elegido en la configuración). */
+.app[data-alerts-side="left"] .body {
+  grid-template-columns: 330px minmax(0, 1fr);
+}
+
+.app[data-alerts-side="left"] .alerts {
+  order: -1;
+  border-right: 1px solid var(--border);
+}
+
+.app[data-alerts-side="left"] .chat {
+  border-right: 0;
+}
+
 /* ---------- Chat ---------- */
 
 .chat {
@@ -295,6 +310,19 @@ h1 {
   border: 1px solid var(--p-border);
   border-radius: 8px;
   background: var(--p-bg);
+}
+
+/* Mensajes con bits o destacados con puntos: borde y fondo con el color de su categoría. */
+.message[data-highlight] {
+  border: 2px solid var(--cat);
+  background: color-mix(in srgb, var(--cat) 12%, var(--p-bg));
+}
+
+/* Emotes dentro del texto, del alto de una línea y un poco más. */
+.emote {
+  height: calc(var(--fs-message) * 1.6);
+  margin: -4px 1px;
+  vertical-align: middle;
 }
 
 .message-header,
@@ -892,9 +920,19 @@ input[readonly] {
     grid-template-rows: minmax(0, 35%) minmax(0, 1fr);
   }
 
+  /* Línea divisoria marcada: si no, una alerta y un mensaje cortados a la misma altura parecen encimados. */
   .alerts {
     order: -1;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 3px solid var(--border-hover);
+  }
+
+  /* En angosto las alertas siempre van arriba, se elija el lado que se elija. */
+  .app[data-alerts-side] .body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app[data-alerts-side] .alerts {
+    border-right: 0;
   }
 
   .chat {

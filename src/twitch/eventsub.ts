@@ -20,6 +20,8 @@ const SUBSCRIPTIONS: { type: string; version: string; name: string; condition: (
   { type: "channel.subscription.gift", version: "1", name: "subs regaladas", condition: (id) => ({ broadcaster_user_id: id }) },
   { type: "channel.cheer", version: "1", name: "bits", condition: (id) => ({ broadcaster_user_id: id }) },
   { type: "channel.channel_points_custom_reward_redemption.add", version: "1", name: "puntos", condition: (id) => ({ broadcaster_user_id: id }) },
+  // Raids que llegan a tu canal. No necesita permisos extra.
+  { type: "channel.raid", version: "1", name: "raids", condition: (id) => ({ to_broadcaster_user_id: id }) },
 ];
 
 type EventSubEvents = {
@@ -262,6 +264,14 @@ function translate(message: EventSubMessage): ChatEvent | undefined {
       event.detail = text(reward.title);
       event.amount = Number(reward.cost) || 0;
       event.text = text(e.user_input);
+      return event;
+    }
+
+    case "channel.raid": {
+      // En los raids el usuario es el canal que manda la raid, no viene en user_name.
+      const event = base("raid");
+      event.user = { id: String(e.from_broadcaster_user_id ?? ""), name: String(e.from_broadcaster_user_name ?? "Un canal") };
+      event.amount = Number(e.viewers) || 0;
       return event;
     }
 

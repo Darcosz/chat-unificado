@@ -14,13 +14,24 @@ export type EventType =
   | "superchat"
   | "kicks"
   | "gift"
-  | "reward";
+  | "reward"
+  | "raid";
 
 export interface User {
   id: string;
   name: string;
   avatar?: string;
 }
+
+/** Trozo de un mensaje: texto normal o un emote que se dibuja como imagen. */
+export type MessageFragment = { type: "text"; text: string } | { type: "emote"; name: string; url: string };
+
+/**
+ * Por qué se resalta un mensaje de chat:
+ * - bits: el mensaje vino con bits (`amount` lleva la cantidad).
+ * - highlighted: alguien canjeó puntos para destacar su mensaje.
+ */
+export type ChatHighlight = "bits" | "highlighted";
 
 /**
  * Uso de `detail`, `amount` y `text` en cada tipo de alerta:
@@ -36,6 +47,9 @@ export interface User {
  * | kicks     | —                       | Kicks             | mensaje            |
  * | gift      | nombre del regalo       | cantidad          | —                  |
  * | reward    | nombre de la recompensa | costo en puntos   | texto del usuario  |
+ * | raid      | —                       | espectadores      | —                  |
+ *
+ * En los mensajes de chat, `amount` solo se usa con `highlight: "bits"`.
  */
 export interface ChatEvent {
   id: string;
@@ -44,6 +58,10 @@ export interface ChatEvent {
   user: User;
   /** Mensaje de chat, o el mensaje que acompaña a una alerta. */
   text?: string;
+  /** El mismo texto partido en trozos cuando lleva emotes. Si falta, se muestra `text` tal cual. */
+  fragments?: MessageFragment[];
+  /** Mensaje de chat resaltado (con bits o destacado con puntos). */
+  highlight?: ChatHighlight;
   /** Detalle secundario de una alerta: meses, nivel, costo, nombre del regalo... */
   detail?: string;
   /** Cantidad de la alerta: bits, monto, número de regalos... */

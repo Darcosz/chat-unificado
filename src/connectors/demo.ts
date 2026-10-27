@@ -22,7 +22,7 @@ const MESSAGES = [
 
 /** Alertas que tiene cada plataforma (sección 3.4 de la especificación). */
 const ALERTS: Record<Platform, Exclude<EventType, "chat">[]> = {
-  twitch: ["follow", "sub", "giftsub", "bits", "reward"],
+  twitch: ["follow", "sub", "giftsub", "bits", "reward", "raid"],
   tiktok: ["follow", "gift"],
   youtube: ["member", "superchat"],
   kick: ["follow", "sub", "kicks"],
@@ -78,6 +78,23 @@ export class DemoConnector extends Connector {
     event.text = pick(MESSAGES);
     // PREGUNTA la calculan las reglas, igual que con los conectores reales.
     event.flags.firstTime = Math.random() < 0.15;
+
+    // En Twitch, a veces un emote, un mensaje con bits o uno destacado con puntos.
+    if (this.platform === "twitch") {
+      const roll = Math.random();
+      if (roll < 0.15) {
+        event.text = `Kappa ${event.text}`;
+        event.fragments = [
+          { type: "emote", name: "Kappa", url: "https://static-cdn.jtvnw.net/emoticons/v2/25/default/dark/2.0" },
+          { type: "text", text: event.text.slice(5) },
+        ];
+      } else if (roll < 0.25) {
+        event.highlight = "bits";
+        event.amount = pick([100, 500]);
+      } else if (roll < 0.35) {
+        event.highlight = "highlighted";
+      }
+    }
     return event;
   }
 
@@ -114,6 +131,9 @@ export class DemoConnector extends Connector {
       case "reward":
         event.detail = "Hidrátate";
         event.amount = 1000;
+        break;
+      case "raid":
+        event.amount = pick([1, 12, 150]);
         break;
     }
     return event;
