@@ -62,6 +62,7 @@
             <div class="cards">
               <article class="card" data-platform="twitch">
                 <div class="card-header">
+                  <img class="logo" src="/logos/twitch.png" alt="" aria-hidden="true" />
                   <span class="tag tag-platform">Twitch</span>
                   <span class="card-status" data-status-of="twitch"></span>
                   <label class="switch" title="Activar o desactivar Twitch">
@@ -69,17 +70,40 @@
                     <span></span>
                   </label>
                 </div>
-                <label class="field">
-                  <span>Canal</span>
-                  <input type="text" id="twitch-channel" placeholder="nombre_del_canal" spellcheck="false" />
-                  <small class="field-error" id="twitch-channel-error" hidden>Nombre de canal no válido.</small>
-                </label>
-                <p class="note">Se recibe: chat. Los follows, subs, bits y puntos llegarán al iniciar sesión con Twitch.</p>
-                <button class="button" type="button" disabled title="Próximamente">Iniciar sesión con Twitch</button>
+                <!-- Sin sesión: solo chat, leído de forma anónima. -->
+                <div class="card-body" id="twitch-anonymous">
+                  <label class="field">
+                    <span>Canal</span>
+                    <input type="text" id="twitch-channel" placeholder="nombre_del_canal" spellcheck="false" />
+                    <small class="field-error" id="twitch-channel-error" hidden>Nombre de canal no válido.</small>
+                  </label>
+                  <p class="note">Se recibe: chat. Inicia sesión para recibir también follows, subs, bits y puntos.</p>
+                  <p class="field-error" id="twitch-login-error" hidden></p>
+                  <button class="button button-primary" type="button" id="twitch-login">Iniciar sesión con Twitch</button>
+                </div>
+
+                <!-- Esperando a que el usuario autorice en la página de Twitch. -->
+                <div class="card-body" id="twitch-waiting" hidden>
+                  <p class="note">Se abrió la página de Twitch en tu navegador. Autoriza la app y comprueba que aparezca este código:</p>
+                  <div class="device-code" id="twitch-code"></div>
+                  <div class="button-row">
+                    <button class="button" type="button" id="twitch-open">Abrir la página otra vez</button>
+                    <button class="button" type="button" id="twitch-cancel">Cancelar</button>
+                  </div>
+                </div>
+
+                <!-- Con sesión: chat y alertas del canal de la cuenta. -->
+                <div class="card-body" id="twitch-account" hidden>
+                  <p class="account-line">Canal conectado: <strong id="twitch-account-name"></strong></p>
+                  <p class="note">Se recibe: chat, follows, subs, bits y puntos.</p>
+                  <p class="card-status" id="twitch-alerts-status"></p>
+                  <button class="button" type="button" id="twitch-logout">Desconectar</button>
+                </div>
               </article>
 
               <article class="card" data-platform="tiktok">
                 <div class="card-header">
+                  <img class="logo" src="/logos/tiktok.png" alt="" aria-hidden="true" />
                   <span class="tag tag-platform">TikTok</span>
                   <span class="card-status" data-status-of="tiktok"></span>
                   <label class="switch" title="Activar o desactivar TikTok">
@@ -104,6 +128,7 @@
 
               <article class="card" data-platform="youtube">
                 <div class="card-header">
+                  <img class="logo" src="/logos/youtube.png" alt="" aria-hidden="true" />
                   <span class="tag tag-platform">YouTube</span>
                   <span class="card-status" data-status-of="youtube"></span>
                   <label class="switch" title="Activar o desactivar YouTube">
@@ -117,6 +142,7 @@
 
               <article class="card" data-platform="kick">
                 <div class="card-header">
+                  <img class="logo" src="/logos/kick.png" alt="" aria-hidden="true" />
                   <span class="tag tag-platform">Kick</span>
                   <span class="card-status" data-status-of="kick"></span>
                   <label class="switch" title="Activar o desactivar Kick">

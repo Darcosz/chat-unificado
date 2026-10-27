@@ -3,7 +3,7 @@
 
 import { PLATFORMS, isChat, type ChatEvent, type EventType, type Platform } from "../core/event.ts";
 import { STATUS_TEXT, type ConnectionStatus, type ServerMessage } from "../core/protocol.ts";
-import { onChange, renderSettings, setCardStatus, setVersion } from "./settings.ts";
+import { onChange, renderSettings, renderTwitch, setCardStatus, setVersion } from "./settings.ts";
 
 type Filter = Platform | "all";
 type Category = "followers" | "subscription" | "money" | "points";
@@ -21,6 +21,7 @@ const ICONS: Record<Category, string> = {
 const ALERTS: Record<Exclude<EventType, "chat">, { label: string; category: Category }> = {
   follow: { label: "Follow", category: "followers" },
   sub: { label: "Sub", category: "subscription" },
+  giftsub: { label: "Sub regalada", category: "subscription" },
   member: { label: "Miembro", category: "subscription" },
   bits: { label: "Bits", category: "money" },
   superchat: { label: "Super Chat", category: "money" },
@@ -62,6 +63,15 @@ function create<K extends keyof HTMLElementTagNameMap>(tag: K, className?: strin
   return element;
 }
 
+/** Logo de la plataforma. Es decorativo: el nombre siempre va escrito al lado. */
+function logo(platform: Platform): HTMLImageElement {
+  const image = create("img", "logo");
+  image.src = `/logos/${platform}.png`;
+  image.alt = "";
+  image.setAttribute("aria-hidden", "true");
+  return image;
+}
+
 function formatTime(date: Date): string {
   return date.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
@@ -83,8 +93,9 @@ function isVisible(event: ChatEvent): boolean {
 function buildHeader(): void {
   const statuses = $("statuses");
   for (const platform of PLATFORMS) {
-    const pill = create("span", "status-pill", NAMES[platform]);
+    const pill = create("span", "status-pill");
     pill.dataset.platform = platform;
+    pill.append(logo(platform), NAMES[platform]);
     statuses.append(pill);
     statusPills.set(platform, pill);
     setStatus(platform, "disconnected");
@@ -92,8 +103,10 @@ function buildHeader(): void {
 
   const filters = $("filters");
   for (const option of ["all", ...PLATFORMS] as const) {
-    const button = create("button", "filter", option === "all" ? "Todos" : NAMES[option]);
+    const button = create("button", "filter");
     button.type = "button";
+    if (option === "all") button.append("Todos");
+    else button.append(logo(option), NAMES[option]);
     button.addEventListener("click", () => selectFilter(option));
     filters.append(button);
     filterButtons.set(option, button);
@@ -139,7 +152,7 @@ function createMessage(event: ChatEvent): HTMLElement {
   card.dataset.platform = event.platform;
 
   const header = create("div", "message-header");
-  header.append(create("span", "tag tag-platform", event.platform), create("span", "name", event.user.name));
+  header.append(logo(event.platform), create("span", "tag tag-platform", event.platform), create("span", "name", event.user.name));
   if (event.flags.firstTime) header.append(create("span", "tag tag-new", "Nuevo"));
   if (event.flags.question) header.append(create("span", "tag tag-question", "Pregunta"));
   header.append(create("time", "time", formatTime(new Date(event.timestamp))));
@@ -223,6 +236,8 @@ function alertTitle(event: ChatEvent): string {
       return `${name} te siguió`;
     case "sub":
       return event.amount && event.amount > 1 ? `${name} se suscribió · ${formatNumber(event.amount)} meses` : `${name} se suscribió`;
+    case "giftsub":
+      return event.amount && event.amount > 1 ? `${name} regaló ${formatNumber(event.amount)} subs` : `${name} regaló una sub`;
     case "member":
       return event.amount && event.amount > 1 ? `${name} es miembro · ${formatNumber(event.amount)} meses` : `${name} se hizo miembro`;
     case "bits":
@@ -243,6 +258,7 @@ function alertTitle(event: ChatEvent): string {
 function alertDetail(event: ChatEvent): string | undefined {
   switch (event.type) {
     case "sub":
+    case "giftsub":
     case "member":
       return event.detail;
     case "reward":
@@ -267,7 +283,7 @@ function createAlert(event: ChatEvent): HTMLElement | undefined {
   typeTag.append(label);
 
   const header = create("div", "alert-header");
-  header.append(create("span", "tag tag-platform", event.platform), typeTag, create("time", "time", formatTime(date)));
+  header.append(logo(event.platform), create("span", "tag tag-platform", event.platform), typeTag, create("time", "time", formatTime(date)));
   card.append(header, create("div", "alert-title", alertTitle(event)));
 
   const detail = alertDetail(event);
@@ -316,6 +332,7 @@ function receive(message: ServerMessage): void {
     case "init":
       setVersion(message.version);
       renderSettings(message.config);
+      renderTwitch(message.twitch);
       chatList.replaceChildren();
       alertList.replaceChildren();
       for (const platform of PLATFORMS) {
@@ -335,6 +352,9 @@ function receive(message: ServerMessage): void {
       break;
     case "config":
       renderSettings(message.config);
+      break;
+    case "twitch":
+      renderTwitch(message.twitch);
       break;
   }
 }

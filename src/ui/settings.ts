@@ -3,7 +3,7 @@
 
 import { cleanTiktokUsername, cleanTwitchChannel, type ConfigChanges, type PublicConfig } from "../core/config.ts";
 import type { Platform } from "../core/event.ts";
-import { CONFIG_ROUTE, STATUS_TEXT, type ConnectionStatus } from "../core/protocol.ts";
+import { CONFIG_ROUTE, STATUS_TEXT, TWITCH_ROUTES, type ConnectionStatus, type TwitchState } from "../core/protocol.ts";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -204,6 +204,58 @@ eulerKey.addEventListener("keydown", (event) => {
 clearKey.addEventListener("click", () => {
   void save((changes) => (changes.newEulerKey = ""));
 });
+
+// ---------- Cuenta de Twitch ----------
+
+const twitchViews = {
+  anonymous: $("twitch-anonymous"),
+  waiting: $("twitch-waiting"),
+  account: $("twitch-account"),
+};
+const twitchLogin = $<HTMLButtonElement>("twitch-login");
+const twitchLoginError = $("twitch-login-error");
+const twitchAlertsStatus = $("twitch-alerts-status");
+
+export function renderTwitch(state: TwitchState): void {
+  const view = state.account ? "account" : state.login.state === "waiting" ? "waiting" : "anonymous";
+  for (const [name, element] of Object.entries(twitchViews)) element.hidden = name !== view;
+
+  twitchLogin.disabled = !state.available;
+  twitchLogin.title = state.available ? "" : "Falta TWITCH_CLIENT_ID en el archivo .env";
+  twitchLoginError.hidden = state.login.state !== "error";
+  if (state.login.state === "error") twitchLoginError.textContent = state.login.message;
+
+  if (state.login.state === "waiting") $("twitch-code").textContent = state.login.userCode;
+
+  if (state.account) {
+    $("twitch-account-name").textContent = state.account.displayName;
+    twitchAlertsStatus.dataset.status = state.account.alerts;
+    twitchAlertsStatus.textContent = `Alertas: ${STATUS_TEXT[state.account.alerts]}${state.account.alertsDetail ? ` · ${state.account.alertsDetail}` : ""}`;
+  }
+}
+
+/** Pide una acción al servidor; los cambios llegan después por WebSocket. */
+async function twitchAction(route: string, button: HTMLButtonElement): Promise<void> {
+  button.disabled = true;
+  try {
+    const response = await fetch(route, { method: "POST" });
+    if (!response.ok) throw new Error(await response.text());
+  } catch (error) {
+    showToast(`No se pudo completar: ${error instanceof Error ? error.message : String(error)}`, "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+for (const [id, route] of [
+  ["twitch-login", TWITCH_ROUTES.login],
+  ["twitch-open", TWITCH_ROUTES.openLoginPage],
+  ["twitch-cancel", TWITCH_ROUTES.cancelLogin],
+  ["twitch-logout", TWITCH_ROUTES.logout],
+] as const) {
+  const button = $<HTMLButtonElement>(id);
+  button.addEventListener("click", () => void twitchAction(route, button));
+}
 
 // ---------- Dock de OBS ----------
 

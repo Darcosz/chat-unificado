@@ -22,7 +22,7 @@ const MESSAGES = [
 
 /** Alertas que tiene cada plataforma (sección 3.4 de la especificación). */
 const ALERTS: Record<Platform, Exclude<EventType, "chat">[]> = {
-  twitch: ["follow", "sub", "bits", "reward"],
+  twitch: ["follow", "sub", "giftsub", "bits", "reward"],
   tiktok: ["follow", "gift"],
   youtube: ["member", "superchat"],
   kick: ["follow", "sub", "kicks"],
@@ -86,6 +86,10 @@ export class DemoConnector extends Connector {
     switch (event.type) {
       case "sub":
         event.amount = pick([1, 3, 12]);
+        event.detail = "Nivel 1";
+        break;
+      case "giftsub":
+        event.amount = pick([1, 5, 10]);
         event.detail = "Nivel 1";
         break;
       case "member":

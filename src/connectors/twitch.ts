@@ -1,20 +1,32 @@
-// Conector de Twitch: lee el chat por IRC con tmi.js (lectura anónima, sin token)
-// y lo traduce al formato común. Las alertas llegarán por EventSub en el paso 5.
+// Conector de Twitch: lee el chat por IRC con tmi.js (lectura anónima, sin token) y, si hay
+// sesión iniciada, recibe las alertas por EventSub. Todo se traduce al formato común.
 
 import { randomUUID } from "node:crypto";
 import tmi from "tmi.js";
 import { Connector } from "../core/connector.ts";
 import type { ChatEvent } from "../core/event.ts";
+import type { ConnectionStatus } from "../core/protocol.ts";
+import type { TwitchAuth } from "../twitch/auth.ts";
+import { TwitchEventSub } from "../twitch/eventsub.ts";
+
+export interface TwitchAlertsOptions {
+  auth: TwitchAuth;
+  /** Id de la cuenta con sesión iniciada: sus alertas son las que se reciben. */
+  userId: string;
+  /** Estado de la conexión de alertas, que se muestra aparte del chat. */
+  onStatus: (status: ConnectionStatus, detail: string | undefined) => void;
+}
 
 export class TwitchConnector extends Connector {
   readonly platform = "twitch";
   readonly channel: string;
 
   #client: tmi.Client;
+  #alerts: TwitchEventSub | undefined;
   /** true mientras cerramos a propósito, para no confundirlo con una caída. */
   #closing = false;
 
-  constructor(channel: string) {
+  constructor(channel: string, alerts?: TwitchAlertsOptions) {
     super();
     this.channel = channel.trim().replace(/^#/, "").toLowerCase();
     if (!/^[a-z0-9_]{1,25}$/.test(this.channel)) {
@@ -40,10 +52,17 @@ export class TwitchConnector extends Connector {
       if (self) return;
       this.emit("event", translateMessage(tags, message));
     });
+
+    if (alerts) {
+      this.#alerts = new TwitchEventSub(alerts.auth, alerts.userId);
+      this.#alerts.on("event", (event) => this.emit("event", event));
+      this.#alerts.on("status", alerts.onStatus);
+    }
   }
 
   async connect(): Promise<void> {
     this.#closing = false;
+    this.#alerts?.start();
     try {
       await this.#client.connect();
     } catch (error) {
@@ -54,6 +73,7 @@ export class TwitchConnector extends Connector {
 
   async disconnect(): Promise<void> {
     this.#closing = true;
+    this.#alerts?.stop();
     try {
       await this.#client.disconnect();
     } catch {

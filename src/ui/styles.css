@@ -95,6 +95,25 @@ button {
   --fs-tag: 12.5px;
 }
 
+/* Logos de plataforma: crecen con el tamaño de texto elegido. */
+.logo {
+  flex: none;
+  width: calc(var(--fs-name) + 4px);
+  height: calc(var(--fs-name) + 4px);
+  object-fit: contain;
+}
+
+.status-pill .logo,
+.filter .logo {
+  width: 15px;
+  height: 15px;
+}
+
+.card-header .logo {
+  width: 22px;
+  height: 22px;
+}
+
 /* Etiquetas desactivadas en la configuración */
 .app[data-hide-new] .list .tag-new,
 .app[data-hide-question] .list .tag-question {
@@ -206,6 +225,9 @@ h1 {
 }
 
 .filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -505,9 +527,62 @@ h2 {
   background: var(--p-bg);
 }
 
-.card > .button {
+.card > .button,
+.card-body > .button {
   align-self: flex-start;
   margin-top: auto;
+}
+
+.card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card-body[hidden] {
+  display: none;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.button-primary {
+  border-color: var(--p-border);
+  background: var(--p-tag);
+  color: var(--p-tag-text);
+}
+
+.button-primary:hover {
+  border-color: var(--p-name);
+}
+
+/* Código que hay que comprobar en la página de Twitch */
+.device-code {
+  padding: 8px 12px;
+  border: 1px dashed var(--p-border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-strong);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-line {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.account-line strong {
+  color: var(--p-name);
 }
 
 .card-header {
@@ -541,6 +616,10 @@ h2 {
 
 .card .switch {
   margin-left: auto;
+}
+
+p.card-status {
+  margin: 0;
 }
 
 .card[data-disabled] > :not(.card-header) {

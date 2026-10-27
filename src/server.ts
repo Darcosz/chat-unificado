@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocket, WebSocketServer } from "ws";
 import type { PublicConfig } from "./core/config.ts";
 import { PLATFORMS, isChat, type ChatEvent, type Platform } from "./core/event.ts";
-import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage } from "./core/protocol.ts";
+import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState } from "./core/protocol.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -43,12 +43,17 @@ export interface ServerOptions {
   config: PublicConfig;
   /** Valida y guarda los cambios. Devuelve la configuración resultante o lanza si no se pudo. */
   onSave: (changes: unknown) => Promise<PublicConfig>;
+  twitch: TwitchState;
+  /** Acciones sin cuerpo que la interfaz pide con POST (ruta → acción). */
+  actions: Record<string, () => Promise<void>>;
 }
 
 export class LocalServer {
   readonly port: number;
   readonly #version: string;
   readonly #onSave: ServerOptions["onSave"];
+  readonly #actions: ServerOptions["actions"];
+  #twitch: TwitchState;
 
   #http = createServer((request, response) => void this.#handle(request, response));
   #ws: WebSocketServer;
@@ -64,6 +69,8 @@ export class LocalServer {
     this.#version = options.version;
     this.#config = options.config;
     this.#onSave = options.onSave;
+    this.#twitch = options.twitch;
+    this.#actions = options.actions;
 
     this.#ws = new WebSocketServer({
       server: this.#http,
@@ -81,6 +88,7 @@ export class LocalServer {
         config: this.#config,
         statuses: this.#statuses,
         history,
+        twitch: this.#twitch,
       });
     });
   }
@@ -110,6 +118,17 @@ export class LocalServer {
   publishStatus(platform: Platform, status: ConnectionStatus, detail?: string): void {
     this.#statuses[platform] = detail === undefined ? { status } : { status, detail };
     this.#broadcast(detail === undefined ? { type: "status", platform, status } : { type: "status", platform, status, detail });
+  }
+
+  publishTwitch(twitch: TwitchState): void {
+    this.#twitch = twitch;
+    this.#broadcast({ type: "twitch", twitch });
+  }
+
+  /** Para cambios de configuración que no vienen de la interfaz (por ejemplo, al iniciar sesión). */
+  publishConfig(config: PublicConfig): void {
+    this.#config = config;
+    this.#broadcast({ type: "config", config });
   }
 
   #broadcast(message: ServerMessage): void {
@@ -142,6 +161,8 @@ export class LocalServer {
 
     if (path === CONFIG_ROUTE) {
       await this.#saveConfig(request, response);
+    } else if (Object.hasOwn(this.#actions, path)) {
+      await this.#runAction(this.#actions[path]!, request, response);
     } else if (request.method === "GET" || request.method === "HEAD") {
       await this.#serveFile(path, response);
     } else {
@@ -149,17 +170,36 @@ export class LocalServer {
     }
   }
 
-  async #saveConfig(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    if (request.method !== "PUT") {
+  /**
+   * Comprueba que una petición que cambia algo venga de nuestra interfaz. Los navegadores
+   * siempre mandan Origin en un PUT o POST; si falta o es ajeno, no es nuestra.
+   */
+  #checkWrite(request: IncomingMessage, response: ServerResponse, method: "PUT" | "POST"): boolean {
+    if (request.method !== method) {
       sendText(response, 405, "Método no permitido");
-      return;
+      return false;
     }
-    // Los navegadores siempre mandan Origin en un PUT; si falta o es ajeno, no viene de nuestra interfaz.
     const origin = request.headers.origin;
     if (!origin || !this.#isAllowedOrigin(origin)) {
       sendText(response, 403, "Prohibido");
-      return;
+      return false;
     }
+    return true;
+  }
+
+  async #runAction(action: () => Promise<void>, request: IncomingMessage, response: ServerResponse): Promise<void> {
+    if (!this.#checkWrite(request, response, "POST")) return;
+    try {
+      await action();
+      sendText(response, 204, "");
+    } catch (error) {
+      console.error("Falló una acción:", error);
+      sendText(response, 500, error instanceof Error ? error.message : "Error");
+    }
+  }
+
+  async #saveConfig(request: IncomingMessage, response: ServerResponse): Promise<void> {
+    if (!this.#checkWrite(request, response, "PUT")) return;
 
     let changes: unknown;
     try {

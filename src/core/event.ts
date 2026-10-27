@@ -8,6 +8,7 @@ export type EventType =
   | "chat"
   | "follow"
   | "sub"
+  | "giftsub"
   | "member"
   | "bits"
   | "superchat"
@@ -28,6 +29,7 @@ export interface User {
  * |-----------|-------------------------|-------------------|--------------------|
  * | follow    | —                       | —                 | —                  |
  * | sub       | nivel ("Nivel 1")       | meses             | mensaje            |
+ * | giftsub   | nivel ("Nivel 1")       | subs regaladas    | —                  |
  * | member    | nivel ("Nivel: Fan")    | meses             | mensaje            |
  * | bits      | —                       | bits              | mensaje            |
  * | superchat | monto con moneda        | monto numérico    | mensaje            |

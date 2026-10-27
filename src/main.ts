@@ -7,9 +7,11 @@
 import { readFile } from "node:fs/promises";
 import { styleText } from "node:util";
 import { applyChanges, cleanTwitchChannel, toPublic } from "./core/config.ts";
+import { STATUS_TEXT, TWITCH_ROUTES, type ConnectionStatus, type TwitchState } from "./core/protocol.ts";
 import { ConnectorManager } from "./connector-manager.ts";
 import { LocalServer } from "./server.ts";
 import { DATA_DIR, loadConfig, saveConfig } from "./storage.ts";
+import { TwitchAuth } from "./twitch/auth.ts";
 
 const args = process.argv.slice(2);
 const demoMode = args.includes("--demo");
@@ -25,6 +27,36 @@ if (!config.platforms.twitch.channel && initialChannel) {
   await saveConfig(config);
 }
 
+// ---------- Twitch: sesión y estado de las alertas ----------
+
+const twitchAuth = new TwitchAuth(process.env.TWITCH_CLIENT_ID);
+await twitchAuth.init();
+if (!twitchAuth.available) console.log(styleText("yellow", "Falta TWITCH_CLIENT_ID en .env: no se podrá iniciar sesión con Twitch."));
+
+let twitchAlerts: { status: ConnectionStatus; detail?: string } = { status: "disconnected" };
+
+function twitchState(): TwitchState {
+  const account = twitchAuth.account;
+  return {
+    available: twitchAuth.available,
+    account: account
+      ? { login: account.login, displayName: account.displayName, alerts: twitchAlerts.status, ...(twitchAlerts.detail ? { alertsDetail: twitchAlerts.detail } : {}) }
+      : null,
+    login: twitchAuth.flow,
+  };
+}
+
+// Con sesión iniciada, el canal del chat es el de la cuenta.
+async function useAccountChannel(): Promise<void> {
+  const login = twitchAuth.account?.login;
+  if (!login || config.platforms.twitch.channel === login) return;
+  config = { ...config, platforms: { ...config.platforms, twitch: { ...config.platforms.twitch, channel: login } } };
+  await saveConfig(config);
+  server.publishConfig(toPublic(config));
+}
+
+// ---------- Servidor y conectores ----------
+
 const server = new LocalServer({
   port,
   version,
@@ -36,8 +68,26 @@ const server = new LocalServer({
     void manager.apply(config);
     return toPublic(config);
   },
+  twitch: twitchState(),
+  actions: {
+    [TWITCH_ROUTES.login]: () => twitchAuth.startLogin(),
+    [TWITCH_ROUTES.cancelLogin]: async () => twitchAuth.cancelLogin(),
+    [TWITCH_ROUTES.openLoginPage]: async () => twitchAuth.openLoginPage(),
+    [TWITCH_ROUTES.logout]: () => twitchAuth.logout(),
+  },
 });
-const manager = new ConnectorManager(server, demoMode);
+
+const manager = new ConnectorManager(server, demoMode, twitchAuth, (status, detail) => {
+  twitchAlerts = detail === undefined ? { status } : { status, detail };
+  console.log(`[twitch] alertas: ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
+  server.publishTwitch(twitchState());
+});
+
+twitchAuth.on("change", () => {
+  if (!twitchAuth.account) twitchAlerts = { status: "disconnected" };
+  server.publishTwitch(twitchState());
+  void useAccountChannel().then(() => manager.apply(config));
+});
 
 try {
   await server.start();
@@ -47,7 +97,9 @@ try {
 }
 
 console.log(`Interfaz lista en ${styleText(["cyan", "bold"], `http://localhost:${port}`)}`);
-console.log(styleText("gray", `Configuración guardada en ${DATA_DIR}`));
+console.log(styleText("gray", `Datos guardados en ${DATA_DIR}`));
+if (twitchAuth.account) console.log(styleText("gray", `Sesión de Twitch: ${twitchAuth.account.displayName}`));
+await useAccountChannel();
 await manager.apply(config);
 
 process.on("SIGINT", () => {

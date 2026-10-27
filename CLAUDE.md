@@ -52,12 +52,14 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 
 ## Fase actual
 
-**Fase 1 — Twitch, paso 5:** login con botón (PKCE o Device Code) y alertas por EventSub. Los pasos 1 a 4 están hechos:
+**Fase 1 — Twitch, paso 6:** reglas NUEVO y PREGUNTA. Los pasos 1 a 5 están hechos:
 
 - Formato común en `src/core/event.ts` (tipo `ChatEvent`), mensajes servidor → interfaz en `src/core/protocol.ts` y base de conectores en `src/core/connector.ts`.
 - Configuración (tipos, valores por defecto y validación) en `src/core/config.ts`. Se guarda en `%APPDATA%\chat-unificado\config.json` (`src/storage.ts`; la variable `CHAT_UNIFICADO_DATA_DIR` cambia la carpeta, útil para pruebas). La clave de Euler nunca se manda a la interfaz.
 - `src/connector-manager.ts` enciende, apaga o recrea los conectores cuando cambia la configuración.
-- Conector de Twitch en `src/connectors/twitch.ts` y conector de prueba en `src/connectors/demo.ts`.
-- Servidor local (HTTP + WebSocket en `/ws`, puerto 4848, `PUT /api/config`) en `src/server.ts`; arranca desde `src/main.ts`. Solo acepta Host y Origin de `localhost`/`127.0.0.1`.
+- Conector de Twitch en `src/connectors/twitch.ts` (chat anónimo con tmi.js y, con sesión, alertas) y conector de prueba en `src/connectors/demo.ts`.
+- Login de Twitch con Device Code en `src/twitch/auth.ts` (app pública, `TWITCH_CLIENT_ID` en `.env`). La sesión se guarda en `twitch-session.json`, aparte de la configuración; los tokens nunca van a la interfaz. Con sesión, el canal del chat es el de la cuenta.
+- Alertas por EventSub WebSocket en `src/twitch/eventsub.ts`: follows, subs, resubs, subs regaladas (tipo `giftsub`), bits y puntos.
+- Servidor local (HTTP + WebSocket en `/ws`, puerto 4848, `PUT /api/config`, `POST /api/twitch/*`) en `src/server.ts`; arranca desde `src/main.ts`. Solo acepta Host y Origin de `localhost`/`127.0.0.1`.
 - Interfaz en `src/ui/`: `app.ts` (chat y alertas), `settings.ts` (pantalla en `#settings`), `index.html` y `styles.css`. Los `.ts` se compilan con `tsconfig.ui.json` a `dist/web`, que el servidor sirve en `/js/`.
 - Comandos: `npm start` (app), `npm run demo` (app con eventos de prueba), `npm run console`, `npm run typecheck`.
