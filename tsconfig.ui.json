@@ -1,0 +1,13 @@
+{
+  // La interfaz corre en el navegador, que no entiende TypeScript: se compila a dist/web
+  // (con los archivos de src/core que importa) y el servidor la sirve desde /js/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist/web"
+  },
+  "include": ["src/ui"],
+  "exclude": []
+}

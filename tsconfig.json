@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    // Node 24 ejecuta los .ts directamente (quitando los tipos), así que
+    // solo se permite sintaxis que se pueda borrar: nada de enum ni namespace.
+    "target": "es2024",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "exclude": ["src/ui"]
+}

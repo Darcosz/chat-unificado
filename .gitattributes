@@ -1,0 +1,2 @@
+# Saltos de línea LF en el repositorio para evitar cambios falsos entre editores en Windows.
+* text=auto eol=lf

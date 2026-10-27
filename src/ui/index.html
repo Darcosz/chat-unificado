@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chat en vivo</title>
+    <link rel="stylesheet" href="/fonts/inter/index.css" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script type="module" src="/js/ui/app.js"></script>
+  </head>
+  <body>
+    <div class="app" id="app" data-filter="all" data-text-size="normal">
+      <!-- ================= Vista de chat ================= -->
+      <div class="view" id="chat-view">
+        <header class="header">
+          <div class="header-row">
+            <h1>Chat en vivo</h1>
+            <div class="header-right">
+              <div class="statuses" id="statuses" aria-label="Estado de las conexiones"></div>
+              <a class="icon-button" href="#settings" title="Configuración" aria-label="Configuración">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+                </svg>
+              </a>
+            </div>
+          </div>
+          <nav class="filters" id="filters" aria-label="Filtrar por plataforma"></nav>
+        </header>
+
+        <main class="body">
+          <section class="chat" aria-label="Chat">
+            <div class="list chat-list" id="chat" data-empty-text="Esperando mensajes…" data-empty></div>
+            <footer class="footer" id="footer">
+              <span class="footer-text" id="footer-text">Auto-scroll activo</span>
+              <button class="button" id="pause" type="button">Pausar</button>
+            </footer>
+          </section>
+
+          <aside class="alerts" aria-label="Alertas">
+            <div class="alerts-header">
+              <h2>Alertas</h2>
+              <span class="counter" id="counter">0 hoy</span>
+            </div>
+            <div class="list alert-list" id="alerts" data-empty-text="Aún no hay alertas" data-empty></div>
+          </aside>
+        </main>
+      </div>
+
+      <!-- ================= Vista de configuración ================= -->
+      <div class="view" id="settings-view" hidden>
+        <header class="header settings-header">
+          <a class="button back-button" href="#">← Volver al chat</a>
+          <h1>Configuración</h1>
+          <span class="version" id="version"></span>
+        </header>
+
+        <form class="settings" id="settings-form" autocomplete="off" novalidate>
+          <!-- ---------- Conexiones ---------- -->
+          <section class="section">
+            <h2>Conexiones</h2>
+            <div class="cards">
+              <article class="card" data-platform="twitch">
+                <div class="card-header">
+                  <span class="tag tag-platform">Twitch</span>
+                  <span class="card-status" data-status-of="twitch"></span>
+                  <label class="switch" title="Activar o desactivar Twitch">
+                    <input type="checkbox" role="switch" data-field="platforms.twitch.enabled" aria-label="Twitch activo" />
+                    <span></span>
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Canal</span>
+                  <input type="text" id="twitch-channel" placeholder="nombre_del_canal" spellcheck="false" />
+                  <small class="field-error" id="twitch-channel-error" hidden>Nombre de canal no válido.</small>
+                </label>
+                <p class="note">Se recibe: chat. Los follows, subs, bits y puntos llegarán al iniciar sesión con Twitch.</p>
+                <button class="button" type="button" disabled title="Próximamente">Iniciar sesión con Twitch</button>
+              </article>
+
+              <article class="card" data-platform="tiktok">
+                <div class="card-header">
+                  <span class="tag tag-platform">TikTok</span>
+                  <span class="card-status" data-status-of="tiktok"></span>
+                  <label class="switch" title="Activar o desactivar TikTok">
+                    <input type="checkbox" role="switch" data-field="platforms.tiktok.enabled" aria-label="TikTok activo" />
+                    <span></span>
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Usuario de TikTok</span>
+                  <input type="text" id="tiktok-username" placeholder="@usuario" spellcheck="false" />
+                  <small class="field-error" id="tiktok-username-error" hidden>Usuario de TikTok no válido.</small>
+                </label>
+                <label class="field">
+                  <span>Clave de Euler Stream</span>
+                  <span class="field-row">
+                    <input type="password" id="euler-key" placeholder="Pega aquí tu clave" spellcheck="false" />
+                    <button class="button button-small" type="button" id="clear-key" hidden>Borrar</button>
+                  </span>
+                </label>
+                <p class="note">El chat de TikTok llegará en la fase 2.</p>
+              </article>
+
+              <article class="card" data-platform="youtube">
+                <div class="card-header">
+                  <span class="tag tag-platform">YouTube</span>
+                  <span class="card-status" data-status-of="youtube"></span>
+                  <label class="switch" title="Activar o desactivar YouTube">
+                    <input type="checkbox" role="switch" data-field="platforms.youtube.enabled" aria-label="YouTube activo" />
+                    <span></span>
+                  </label>
+                </div>
+                <p class="note">Se abrirá el navegador para que autorices tu cuenta de Google. Se recibe: chat, Super Chats y membresías.</p>
+                <button class="button" type="button" disabled title="Disponible en la fase 3">Conectar con YouTube</button>
+              </article>
+
+              <article class="card" data-platform="kick">
+                <div class="card-header">
+                  <span class="tag tag-platform">Kick</span>
+                  <span class="card-status" data-status-of="kick"></span>
+                  <label class="switch" title="Activar o desactivar Kick">
+                    <input type="checkbox" role="switch" data-field="platforms.kick.enabled" aria-label="Kick activo" />
+                    <span></span>
+                  </label>
+                </div>
+                <p class="note">Se abrirá el navegador para que autorices tu cuenta de Kick. Se recibe: chat, follows, subs y Kicks.</p>
+                <button class="button" type="button" disabled title="Disponible en la fase 4">Conectar con Kick</button>
+              </article>
+            </div>
+            <p class="note privacy-note">Cada persona conecta sus propias cuentas. Los datos de sesión se guardan solo en esta PC.</p>
+          </section>
+
+          <!-- ---------- Ventana ---------- -->
+          <section class="section">
+            <h2>Ventana</h2>
+            <div class="options">
+              <label class="option">
+                <span>Siempre encima <small>Se aplicará en la app de escritorio.</small></span>
+                <span class="switch">
+                  <input type="checkbox" role="switch" data-field="window.alwaysOnTop" />
+                  <span></span>
+                </span>
+              </label>
+              <label class="option">
+                <span>Iniciar con Windows <small>Se aplicará en la app de escritorio.</small></span>
+                <span class="switch">
+                  <input type="checkbox" role="switch" data-field="window.startWithWindows" />
+                  <span></span>
+                </span>
+              </label>
+              <div class="option">
+                <span id="text-size-title">Tamaño de texto</span>
+                <div class="segments" role="radiogroup" aria-labelledby="text-size-title">
+                  <label><input type="radio" name="text-size" value="normal" data-field="window.textSize" /><span>Normal</span></label>
+                  <label><input type="radio" name="text-size" value="large" data-field="window.textSize" /><span>Grande</span></label>
+                  <label><input type="radio" name="text-size" value="extra-large" data-field="window.textSize" /><span>Muy grande</span></label>
+                </div>
+              </div>
+              <label class="option">
+                <span>Opacidad de la ventana <small>Se aplicará en la app de escritorio.</small></span>
+                <span class="slider">
+                  <input type="range" min="0.5" max="1" step="0.05" data-field="window.opacity" />
+                  <output id="opacity-value"></output>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <!-- ---------- Etiquetas del chat ---------- -->
+          <section class="section">
+            <h2>Etiquetas del chat</h2>
+            <div class="options">
+              <label class="option">
+                <span>Marcar <span class="tag tag-new">Nuevo</span> <small>Primera vez que alguien escribe.</small></span>
+                <span class="switch">
+                  <input type="checkbox" role="switch" data-field="tags.markNew" />
+                  <span></span>
+                </span>
+              </label>
+              <label class="option">
+                <span>Marcar <span class="tag tag-question">Pregunta</span> <small>Mensajes con "?" o que te mencionan.</small></span>
+                <span class="switch">
+                  <input type="checkbox" role="switch" data-field="tags.markQuestion" />
+                  <span></span>
+                </span>
+              </label>
+              <label class="field">
+                <span>Nombres o apodos que cuentan como mención <small>Separados por comas.</small></span>
+                <input type="text" id="mentions" placeholder="lalo, lalito, el profe" spellcheck="false" />
+              </label>
+            </div>
+          </section>
+
+          <!-- ---------- Dock de OBS y actualizaciones ---------- -->
+          <section class="section">
+            <h2>Dock de OBS (opcional) y actualizaciones</h2>
+            <div class="options">
+              <div class="field">
+                <span>Dirección para OBS → Docks → Docks de navegador personalizados</span>
+                <span class="field-row">
+                  <input type="text" id="dock-url" readonly />
+                  <button class="button" type="button" id="copy-dock">Copiar</button>
+                </span>
+              </div>
+              <label class="option">
+                <span>Actualizar automáticamente</span>
+                <span class="switch">
+                  <input type="checkbox" role="switch" data-field="autoUpdate" />
+                  <span></span>
+                </span>
+              </label>
+            </div>
+          </section>
+        </form>
+      </div>
+
+      <div class="notice" id="notice" role="status" hidden>Sin conexión con la app. Reintentando…</div>
+      <div class="toast" id="toast" role="status" hidden></div>
+    </div>
+  </body>
+</html>
