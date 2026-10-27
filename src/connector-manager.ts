@@ -1,10 +1,12 @@
 // Gestor de conectores: según la configuración, enciende, apaga o recrea el conector
-// de cada plataforma, y reenvía sus eventos y estados al servidor local.
+// de cada plataforma, aplica las reglas (NUEVO, PREGUNTA) a sus eventos y los reenvía,
+// junto con su estado, al servidor local.
 
 import type { Config } from "./core/config.ts";
 import type { Connector } from "./core/connector.ts";
 import { PLATFORMS, type Platform } from "./core/event.ts";
 import { STATUS_TEXT } from "./core/protocol.ts";
+import { applyRules, type RuleContext } from "./core/rules.ts";
 import { DemoConnector } from "./connectors/demo.ts";
 import { TwitchConnector, type TwitchAlertsOptions } from "./connectors/twitch.ts";
 import type { LocalServer } from "./server.ts";
@@ -23,6 +25,7 @@ export class ConnectorManager {
   readonly #onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"];
   readonly #active = new Map<Platform, { key: string; connector: Connector }>();
   #queue: Promise<void> = Promise.resolve();
+  #rules: RuleContext = { mentionNames: [], ownNames: [] };
 
   constructor(server: LocalServer, demoMode: boolean, twitchAuth: TwitchAuth, onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"]) {
     this.#server = server;
@@ -33,6 +36,7 @@ export class ConnectorManager {
 
   /** Ajusta los conectores a la configuración. Las llamadas se aplican en orden. */
   apply(config: Config): Promise<void> {
+    this.#rules = this.#ruleContext(config);
     this.#queue = this.#queue.catch(() => {}).then(async () => {
       for (const platform of PLATFORMS) await this.#applyPlatform(platform, this.#wanted(platform, config));
     });
@@ -44,6 +48,13 @@ export class ConnectorManager {
       for (const platform of PLATFORMS) await this.#applyPlatform(platform, undefined);
     });
     return this.#queue;
+  }
+
+  /** Nombres del streamer en cada plataforma, más los apodos de la configuración. */
+  #ruleContext(config: Config): RuleContext {
+    const account = this.#twitchAuth.account;
+    const ownNames = [config.platforms.twitch.channel, account?.login ?? "", account?.displayName ?? ""].filter(Boolean);
+    return { ownNames, mentionNames: [...ownNames, ...config.tags.mentions] };
   }
 
   #wanted(platform: Platform, config: Config): Wanted | undefined {
@@ -82,7 +93,7 @@ export class ConnectorManager {
       this.#server.publishStatus(platform, status, detail);
       console.log(`[${platform}] ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
     });
-    connector.on("event", (event) => this.#server.publishEvent(event));
+    connector.on("event", (event) => this.#server.publishEvent(applyRules(event, this.#rules)));
     this.#active.set(platform, { key: wanted.key, connector });
     void connector.connect();
   }

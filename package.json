@@ -12,7 +12,8 @@
     "demo": "npm run build:ui && node --env-file-if-exists=.env src/main.ts --demo",
     "console": "node --env-file-if-exists=.env src/console.ts",
     "build:ui": "tsc -p tsconfig.ui.json",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.ui.json --noEmit"
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.ui.json --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

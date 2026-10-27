@@ -76,8 +76,8 @@ export class DemoConnector extends Connector {
   #chat(): ChatEvent {
     const event = this.#base("chat");
     event.text = pick(MESSAGES);
+    // PREGUNTA la calculan las reglas, igual que con los conectores reales.
     event.flags.firstTime = Math.random() < 0.15;
-    event.flags.question = /[?¿]/.test(event.text);
     return event;
   }
 
