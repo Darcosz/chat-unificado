@@ -16,6 +16,11 @@ export type ConnectorEvents = {
 
 export abstract class Connector extends EventEmitter<ConnectorEvents> {
   abstract readonly platform: Platform;
+  /**
+   * true si la plataforma ya dice si es el primer mensaje del usuario (como Twitch).
+   * Si es false, NUEVO se calcula con los usuarios ya vistos guardados en la PC.
+   */
+  readonly reportsFirstTime: boolean = false;
 
   #status: ConnectionStatus = "disconnected";
 

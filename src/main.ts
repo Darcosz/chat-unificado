@@ -10,6 +10,7 @@ import { applyChanges, cleanTwitchChannel, toPublic } from "./core/config.ts";
 import { STATUS_TEXT, TWITCH_ROUTES, type ConnectionStatus, type TwitchState } from "./core/protocol.ts";
 import { ConnectorManager } from "./connector-manager.ts";
 import { LocalServer } from "./server.ts";
+import { SeenUsers } from "./seen-users.ts";
 import { DATA_DIR, loadConfig, saveConfig } from "./storage.ts";
 import { TwitchAuth } from "./twitch/auth.ts";
 
@@ -77,10 +78,18 @@ const server = new LocalServer({
   },
 });
 
-const manager = new ConnectorManager(server, demoMode, twitchAuth, (status, detail) => {
-  twitchAlerts = detail === undefined ? { status } : { status, detail };
-  console.log(`[twitch] alertas: ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
-  server.publishTwitch(twitchState());
+const seenUsers = await SeenUsers.load();
+
+const manager = new ConnectorManager({
+  server,
+  demoMode,
+  twitchAuth,
+  seenUsers,
+  onTwitchAlertsStatus: (status, detail) => {
+    twitchAlerts = detail === undefined ? { status } : { status, detail };
+    console.log(`[twitch] alertas: ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
+    server.publishTwitch(twitchState());
+  },
 });
 
 twitchAuth.on("change", () => {
@@ -105,6 +114,7 @@ await manager.apply(config);
 process.on("SIGINT", () => {
   void manager
     .close()
+    .then(() => seenUsers.flush())
     .then(() => server.close())
     .then(() => process.exit(0));
 });

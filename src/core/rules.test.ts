@@ -66,6 +66,12 @@ describe("applyRules", () => {
     assert.equal(applyRules(chat("¿me escuchan?", "ArcosZR"), context).flags.question, false);
   });
 
+  it("reconoce al streamer por su usuario aunque el nombre visible sea otro (TikTok)", () => {
+    const event = chat("¿me escuchan?", "Arcos el Grande");
+    event.user.login = "arcoszr";
+    assert.equal(applyRules(event, context).flags.question, false);
+  });
+
   it("respeta NUEVO tal como viene de la plataforma", () => {
     assert.equal(applyRules(chat("hola", "viewer", true), context).flags.firstTime, true);
     assert.equal(applyRules(chat("hola", "viewer", false), context).flags.firstTime, false);

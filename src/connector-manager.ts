@@ -8,7 +8,9 @@ import { PLATFORMS, type Platform } from "./core/event.ts";
 import { STATUS_TEXT } from "./core/protocol.ts";
 import { applyRules, type RuleContext } from "./core/rules.ts";
 import { DemoConnector } from "./connectors/demo.ts";
+import { TikTokConnector } from "./connectors/tiktok.ts";
 import { TwitchConnector, type TwitchAlertsOptions } from "./connectors/twitch.ts";
+import type { SeenUsers } from "./seen-users.ts";
 import type { LocalServer } from "./server.ts";
 import type { TwitchAuth } from "./twitch/auth.ts";
 
@@ -23,15 +25,23 @@ export class ConnectorManager {
   readonly #demoMode: boolean;
   readonly #twitchAuth: TwitchAuth;
   readonly #onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"];
+  readonly #seenUsers: SeenUsers;
   readonly #active = new Map<Platform, { key: string; connector: Connector }>();
   #queue: Promise<void> = Promise.resolve();
   #rules: RuleContext = { mentionNames: [], ownNames: [] };
 
-  constructor(server: LocalServer, demoMode: boolean, twitchAuth: TwitchAuth, onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"]) {
-    this.#server = server;
-    this.#demoMode = demoMode;
-    this.#twitchAuth = twitchAuth;
-    this.#onTwitchAlertsStatus = onTwitchAlertsStatus;
+  constructor(options: {
+    server: LocalServer;
+    demoMode: boolean;
+    twitchAuth: TwitchAuth;
+    onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"];
+    seenUsers: SeenUsers;
+  }) {
+    this.#server = options.server;
+    this.#demoMode = options.demoMode;
+    this.#twitchAuth = options.twitchAuth;
+    this.#onTwitchAlertsStatus = options.onTwitchAlertsStatus;
+    this.#seenUsers = options.seenUsers;
   }
 
   /** Ajusta los conectores a la configuración. Las llamadas se aplican en orden. */
@@ -53,7 +63,12 @@ export class ConnectorManager {
   /** Nombres del streamer en cada plataforma, más los apodos de la configuración. */
   #ruleContext(config: Config): RuleContext {
     const account = this.#twitchAuth.account;
-    const ownNames = [config.platforms.twitch.channel, account?.login ?? "", account?.displayName ?? ""].filter(Boolean);
+    const ownNames = [
+      config.platforms.twitch.channel,
+      account?.login ?? "",
+      account?.displayName ?? "",
+      config.platforms.tiktok.username,
+    ].filter(Boolean);
     return { ownNames, mentionNames: [...ownNames, ...config.tags.mentions] };
   }
 
@@ -68,7 +83,13 @@ export class ConnectorManager {
       return { key: `twitch:${channel}:${account?.userId ?? "anónimo"}`, create: () => new TwitchConnector(channel, alerts) };
     }
 
-    // TikTok, YouTube y Kick llegan en sus fases. Mientras, en modo demo se simulan.
+    const { username, eulerKey } = config.platforms.tiktok;
+    if (platform === "tiktok" && username) {
+      // La clave forma parte de la llave: si se cambia, se reconecta con la nueva.
+      return { key: `tiktok:${username}:${eulerKey}`, create: () => new TikTokConnector(username, eulerKey) };
+    }
+
+    // YouTube y Kick llegan en sus fases. Mientras, en modo demo se simulan.
     if (this.#demoMode) return { key: "demo", create: () => new DemoConnector(platform) };
     return undefined;
   }
@@ -93,7 +114,13 @@ export class ConnectorManager {
       this.#server.publishStatus(platform, status, detail);
       console.log(`[${platform}] ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
     });
-    connector.on("event", (event) => this.#server.publishEvent(applyRules(event, this.#rules)));
+    connector.on("event", (event) => {
+      // Si la plataforma no indica NUEVO, se calcula con los usuarios ya vistos.
+      if (event.type === "chat" && !connector.reportsFirstTime) {
+        event = { ...event, flags: { ...event.flags, firstTime: this.#seenUsers.markSeen(platform, event.user.id) } };
+      }
+      this.#server.publishEvent(applyRules(event, this.#rules));
+    });
     this.#active.set(platform, { key: wanted.key, connector });
     void connector.connect();
   }

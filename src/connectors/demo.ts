@@ -23,7 +23,7 @@ const MESSAGES = [
 /** Alertas que tiene cada plataforma (sección 3.4 de la especificación). */
 const ALERTS: Record<Platform, Exclude<EventType, "chat">[]> = {
   twitch: ["follow", "sub", "giftsub", "bits", "reward", "raid"],
-  tiktok: ["follow", "gift"],
+  tiktok: ["follow", "gift", "share"],
   youtube: ["member", "superchat"],
   kick: ["follow", "sub", "kicks"],
 };
@@ -34,6 +34,8 @@ function pick<T>(list: readonly T[]): T {
 
 export class DemoConnector extends Connector {
   readonly platform: Platform;
+  /** El demo inventa NUEVO por su cuenta; así no llena el registro de usuarios vistos con nombres falsos. */
+  override readonly reportsFirstTime = true;
   #timer: NodeJS.Timeout | undefined;
 
   constructor(platform: Platform) {

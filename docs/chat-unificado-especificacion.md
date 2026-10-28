@@ -107,7 +107,7 @@ Las alertas se colorean por **categoría**, no por plataforma, para no chocar co
 
 | Categoría | Color | Twitch | TikTok | YouTube | Kick |
 |---|---|---|---|---|---|
-| Seguidores | Azul claro `#93C5FD` | FOLLOW | FOLLOW | — | FOLLOW |
+| Seguidores | Azul claro `#93C5FD` | FOLLOW | FOLLOW · COMPARTIÓ | — | FOLLOW |
 | Suscripción / membresía | Fucsia `#E879F9` | SUB (meses, nivel) · SUB REGALADA (cantidad, nivel) | — | MIEMBRO (nivel) | SUB |
 | Dinero / regalos | Dorado `#FDE047` | BITS (+ mensaje) | REGALO (regalo × cantidad) | SUPER CHAT (monto + mensaje) | KICKS |
 | Puntos del canal | Naranja `#FB923C` | PUNTOS (recompensa + costo) | — | — | — |
@@ -196,8 +196,11 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 
 - **Chat y alertas:** `tiktok-live-connector` (Node). Recibe comentarios, follows y regalos.
 - **Login:** no se necesita para leer el chat propio; basta con el nombre de usuario, guardado una vez.
-- **NUEVO:** TikTok no lo indica; se calcula guardando localmente los usuarios ya vistos.
-- **Regalos en combo:** agrupar los eventos y mostrar solo el total cuando termina el combo.
+- **NUEVO:** TikTok no lo indica; se calcula guardando localmente los usuarios ya vistos (`seen-users.json`). La primera vez que se usa la app, todos los que escriban salen como NUEVO; desde ahí, solo quien nunca había escrito.
+- **Regalos en combo:** agrupar los eventos y mostrar solo el total cuando termina el combo (`repeatEnd`).
+- **Compartidos:** alerta "X compartió el live" (categoría Seguidores). Los reposts cuentan igual y salen como "X reposteó el live". Likes y entradas al live no se muestran: llenarían el panel.
+- **Nombres:** se muestra el nombre visible (`nickname`); el @usuario (`displayId`) se guarda aparte para reconocer los mensajes del propio streamer.
+- **Euler gratuito:** 2,500 peticiones de firma al día; solo cuenta conectar, no los mensajes. No usar `enableExtendedGiftInfo`, que es del plan de pago. Sin live, la app reintenta con espera creciente (de 30 s a 5 min) para no gastar el límite.
 - **Riesgos:** depende de un servicio interno de TikTok y del servidor de firma de Euler Stream. Puede dejar de funcionar sin cambios de nuestro lado. Usar una API key gratuita de Euler y reconexión automática.
 - **Nota:** apps como Meld ofrecen login con TikTok porque tienen acceso como socio; ese acceso no está disponible para desarrolladores individuales.
 
@@ -240,7 +243,7 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 {
   "id": "uuid",
   "platform": "twitch | tiktok | youtube | kick",
-  "type": "chat | follow | sub | giftsub | member | bits | superchat | kicks | gift | reward | raid",
+  "type": "chat | follow | sub | giftsub | member | bits | superchat | kicks | gift | reward | raid | share",
   "user": {
     "id": "123",
     "name": "lalo_gamer",
@@ -259,7 +262,8 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 
 - `type: "chat"` va a la columna de chat; cualquier otro tipo va al panel de alertas.
 - `detail` y `amount` son opcionales según el tipo de alerta (la tabla de qué lleva cada tipo está en `src/core/event.ts`).
-- `giftsub` (subs regaladas) y `raid` se agregaron durante la fase de Twitch.
+- `giftsub` (subs regaladas) y `raid` se agregaron durante la fase de Twitch; `share` (compartidos de TikTok), en la fase 2.
+- `user.login`: nombre de usuario único (login de Twitch, @usuario de TikTok), aparte del nombre visible.
 - Campos opcionales de los mensajes de chat:
   - `fragments`: el texto partido en trozos `{ "type": "text", "text" }` o `{ "type": "emote", "name", "url" }` cuando lleva emotes. Si falta, se muestra `text`.
   - `highlight`: `"bits"` (con `amount` = bits) o `"highlighted"` (destacado con puntos) para resaltar el mensaje.

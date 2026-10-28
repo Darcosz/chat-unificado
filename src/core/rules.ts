@@ -49,7 +49,7 @@ export function applyRules(event: ChatEvent, context: RuleContext): ChatEvent {
 
   const text = event.text ?? "";
   const ownNames = new Set(context.ownNames.map(normalize));
-  const isOwn = ownNames.has(normalize(event.user.name));
+  const isOwn = ownNames.has(normalize(event.user.name)) || (event.user.login !== undefined && ownNames.has(normalize(event.user.login)));
   const question = !isOwn && (hasQuestionMark(text) || mentions(text, context.mentionNames));
 
   return { ...event, flags: { ...event.flags, question } };

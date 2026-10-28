@@ -30,6 +30,7 @@ const ALERTS: Record<Exclude<EventType, "chat">, { label: string; category: Cate
   gift: { label: "Regalo", category: "money" },
   reward: { label: "Puntos", category: "points" },
   raid: { label: "Raid", category: "raid" },
+  share: { label: "Compartió", category: "followers" },
 };
 
 /** Etiqueta y color de los mensajes de chat resaltados. */
@@ -295,6 +296,8 @@ function alertTitle(event: ChatEvent): string {
       return `${name} envió ${event.detail ?? "un regalo"} × ${formatNumber(event.amount ?? 1)}`;
     case "reward":
       return `${name} canjeó «${event.detail ?? "una recompensa"}»`;
+    case "share":
+      return event.detail === "repost" ? `${name} reposteó el live` : `${name} compartió el live`;
     case "raid":
       return `${name} te hizo raid con ${formatNumber(event.amount)} ${event.amount === 1 ? "espectador" : "espectadores"}`;
     case "chat":

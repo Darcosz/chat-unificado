@@ -82,6 +82,23 @@ export function saveTwitchSession(session: TwitchSession): Promise<void> {
   return writeJson(TWITCH_SESSION_FILE, session);
 }
 
+/** Ids de usuarios que ya escribieron alguna vez, por plataforma (para la etiqueta NUEVO). */
+const SEEN_USERS_FILE = join(DATA_DIR, "seen-users.json");
+
+export async function loadSeenUsers(): Promise<Record<string, string[]>> {
+  const value = await readJson(SEEN_USERS_FILE);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return {};
+  const result: Record<string, string[]> = {};
+  for (const [platform, ids] of Object.entries(value)) {
+    if (Array.isArray(ids)) result[platform] = ids.filter((id): id is string => typeof id === "string");
+  }
+  return result;
+}
+
+export function saveSeenUsers(seen: Record<string, string[]>): Promise<void> {
+  return writeJson(SEEN_USERS_FILE, seen);
+}
+
 export function deleteTwitchSession(): Promise<void> {
   queue = queue.catch(() => {}).then(() => rm(TWITCH_SESSION_FILE, { force: true }));
   return queue;

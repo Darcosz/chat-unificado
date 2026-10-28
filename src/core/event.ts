@@ -15,11 +15,15 @@ export type EventType =
   | "kicks"
   | "gift"
   | "reward"
-  | "raid";
+  | "raid"
+  | "share";
 
 export interface User {
   id: string;
+  /** Nombre visible (display name en Twitch, nickname en TikTok). */
   name: string;
+  /** Nombre de usuario único (login en Twitch, @usuario en TikTok), si es distinto del visible. */
+  login?: string;
   avatar?: string;
 }
 
@@ -48,6 +52,7 @@ export type ChatHighlight = "bits" | "highlighted";
  * | gift      | nombre del regalo       | cantidad          | —                  |
  * | reward    | nombre de la recompensa | costo en puntos   | texto del usuario  |
  * | raid      | —                       | espectadores      | —                  |
+ * | share     | "repost" si fue repost  | —                 | —                  |
  *
  * En los mensajes de chat, `amount` solo se usa con `highlight: "bits"`.
  */

@@ -19,6 +19,7 @@ export interface TwitchAlertsOptions {
 
 export class TwitchConnector extends Connector {
   readonly platform = "twitch";
+  override readonly reportsFirstTime = true;
   readonly channel: string;
 
   #client: tmi.Client;
@@ -100,6 +101,7 @@ function translateMessage(tags: tmi.ChatUserstate, message: string, extra?: Pick
     user: {
       id: tags["user-id"] ?? "",
       name: tags["display-name"] ?? tags.username ?? "anónimo",
+      ...(tags.username ? { login: tags.username } : {}),
     },
     text: message,
     ...(fragments ? { fragments } : {}),

@@ -36,7 +36,8 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 6. Reglas NUEVO y PREGUNTA.
 
 **Fase 2 — TikTok**
-- Conector con `tiktok-live-connector` y clave de Euler Stream: chat, follows y regalos.
+- Conector con `tiktok-live-connector` y clave de Euler Stream: chat, follows, regalos y compartidos (decidido con el usuario; likes y entradas al live quedan fuera porque llenarían el panel).
+- No hay login: TikTok solo da acceso a los eventos del live a socios aprobados. La librería lee el live como un espectador, con el usuario del canal, y la conexión solo funciona mientras está en vivo.
 - NUEVO a partir de los usuarios ya vistos guardados localmente, y agrupación de combos de regalos.
 - Tarjeta de configuración con usuario de TikTok y clave de Euler.
 
@@ -52,7 +53,21 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 
 ## Fase actual
 
-**Fase 2 — TikTok.** La fase 1 (Twitch) está terminada:
+**Fase 2 — TikTok, en pruebas.** Hecho y probado con un live real (`deusamirr`):
+
+- Conector en `src/connectors/tiktok.ts` con `tiktok-live-connector` 2.5: chat, follows, regalos y compartidos (tipo `share`). Usuario y clave de Euler en la configuración.
+- Regalos de combo: se espera al evento con `repeatEnd` y se muestra una sola alerta con el total (si nunca llega, tras 8 s sin novedades).
+- `processInitialData: false` (si no, repetiría mensajes viejos en cada reconexión). `enableExtendedGiftInfo` **apagado**: pide la lista de regalos a Euler y es del plan de pago; el nombre ya viene en `gift.name`.
+- Reconexión: sin live, reintenta de 30 s a 5 min; con error, de 5 s a 5 min; límite de Euler o función de pago, cada 10 min. Así no se gasta el límite gratuito (2,500 peticiones al día; solo cuenta conectar, no los mensajes).
+- NUEVO con el registro de usuarios ya vistos (`src/seen-users.ts`, archivo `seen-users.json`, máx. 50,000 por plataforma). Los conectores indican con `reportsFirstTime` si la plataforma ya lo da (Twitch y el demo sí).
+- El evento lleva `user.login` (@usuario) además del nombre visible; las reglas lo usan para no marcar los mensajes del propio streamer.
+- Los tipos de eventos de la librería (`typed-emitter`) no se resuelven con `module: nodenext`; el conector usa una vista tipada propia (`TikTokEvents`).
+
+- Compartidos: llegan con la clave `pm_mt_guidance_share` ("X shared the LIVE") y la librería los emite como `share`. Los reposts (`ttlive_repost_…`, "X reposted") la librería los emite como `social`; el conector los convierte en `share` con `detail: "repost"`. Se comprobó con un live real que la app recibe exactamente los mismos follows y compartidos que la librería directa: son poco frecuentes (unos pocos por minuto en un live grande).
+
+Pendiente de la fase 2: ver en un live un combo grande de regalos (hasta ahora solo llegaron regalos de 1).
+
+La fase 1 (Twitch) está terminada:
 
 - Formato común en `src/core/event.ts` (tipo `ChatEvent`), mensajes servidor → interfaz en `src/core/protocol.ts` y base de conectores en `src/core/connector.ts`.
 - Configuración (tipos, valores por defecto y validación) en `src/core/config.ts`. Se guarda en `%APPDATA%\chat-unificado\config.json` (`src/storage.ts`; la variable `CHAT_UNIFICADO_DATA_DIR` cambia la carpeta, útil para pruebas). La clave de Euler nunca se manda a la interfaz.
