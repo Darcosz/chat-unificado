@@ -66,6 +66,10 @@ describe("applyRules", () => {
     assert.equal(applyRules(chat("¿me escuchan?", "ArcosZR"), context).flags.question, false);
   });
 
+  it("reconoce al streamer aunque su nombre venga con @ (YouTube)", () => {
+    assert.equal(applyRules(chat("¿me escuchan?", "@ArcosZR"), context).flags.question, false);
+  });
+
   it("reconoce al streamer por su usuario aunque el nombre visible sea otro (TikTok)", () => {
     const event = chat("¿me escuchan?", "Arcos el Grande");
     event.user.login = "arcoszr";

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { WebSocket, WebSocketServer } from "ws";
 import type { PublicConfig } from "./core/config.ts";
 import { PLATFORMS, isChat, type ChatEvent, type Platform } from "./core/event.ts";
-import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState } from "./core/protocol.ts";
+import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState, type YouTubeState } from "./core/protocol.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 
@@ -44,8 +44,14 @@ export interface ServerOptions {
   /** Valida y guarda los cambios. Devuelve la configuración resultante o lanza si no se pudo. */
   onSave: (changes: unknown) => Promise<PublicConfig>;
   twitch: TwitchState;
+  youtube: YouTubeState;
   /** Acciones sin cuerpo que la interfaz pide con POST (ruta → acción). */
   actions: Record<string, () => Promise<void>>;
+  /**
+   * Páginas GET que abre el navegador del usuario fuera de la interfaz (la vuelta del inicio
+   * de sesión de Google). Reciben los parámetros de la URL y devuelven el texto a mostrar.
+   */
+  pages: Record<string, (params: URLSearchParams) => Promise<{ ok: boolean; message: string }>>;
 }
 
 export class LocalServer {
@@ -53,7 +59,9 @@ export class LocalServer {
   readonly #version: string;
   readonly #onSave: ServerOptions["onSave"];
   readonly #actions: ServerOptions["actions"];
+  readonly #pages: ServerOptions["pages"];
   #twitch: TwitchState;
+  #youtube: YouTubeState;
 
   #http = createServer((request, response) => void this.#handle(request, response));
   #ws: WebSocketServer;
@@ -70,7 +78,9 @@ export class LocalServer {
     this.#config = options.config;
     this.#onSave = options.onSave;
     this.#twitch = options.twitch;
+    this.#youtube = options.youtube;
     this.#actions = options.actions;
+    this.#pages = options.pages;
 
     this.#ws = new WebSocketServer({
       server: this.#http,
@@ -89,6 +99,7 @@ export class LocalServer {
         statuses: this.#statuses,
         history,
         twitch: this.#twitch,
+        youtube: this.#youtube,
       });
     });
   }
@@ -123,6 +134,11 @@ export class LocalServer {
   publishTwitch(twitch: TwitchState): void {
     this.#twitch = twitch;
     this.#broadcast({ type: "twitch", twitch });
+  }
+
+  publishYouTube(youtube: YouTubeState): void {
+    this.#youtube = youtube;
+    this.#broadcast({ type: "youtube", youtube });
   }
 
   /** Para cambios de configuración que no vienen de la interfaz (por ejemplo, al iniciar sesión). */
@@ -163,6 +179,8 @@ export class LocalServer {
       await this.#saveConfig(request, response);
     } else if (Object.hasOwn(this.#actions, path)) {
       await this.#runAction(this.#actions[path]!, request, response);
+    } else if (Object.hasOwn(this.#pages, path) && request.method === "GET") {
+      await this.#servePage(this.#pages[path]!, new URL(request.url ?? "/", "http://localhost").searchParams, response);
     } else if (request.method === "GET" || request.method === "HEAD") {
       await this.#serveFile(path, response);
     } else {
@@ -196,6 +214,24 @@ export class LocalServer {
       console.error("Falló una acción:", error);
       sendText(response, 500, error instanceof Error ? error.message : "Error");
     }
+  }
+
+  /** Página sencilla con el resultado (por ejemplo, "Listo, ya puedes cerrar esta pestaña"). */
+  async #servePage(page: ServerOptions["pages"][string], params: URLSearchParams, response: ServerResponse): Promise<void> {
+    let result: { ok: boolean; message: string };
+    try {
+      result = await page(params);
+    } catch (error) {
+      result = { ok: false, message: error instanceof Error ? error.message : "Error inesperado" };
+    }
+    const escaped = result.message.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+    response.writeHead(result.ok ? 200 : 400, { "Content-Type": MIME_TYPES[".html"]!, "Cache-Control": "no-store" });
+    response.end(
+      `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Chat Unificado</title>` +
+        `<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1115;color:#e8eaed;font:16px system-ui,sans-serif}` +
+        `p{max-width:440px;padding:24px;border:1px solid ${result.ok ? "#34d399" : "#f87171"};border-radius:12px;background:#151821;line-height:1.5}</style>` +
+        `</head><body><p>${escaped}</p></body></html>`,
+    );
   }
 
   async #saveConfig(request: IncomingMessage, response: ServerResponse): Promise<void> {

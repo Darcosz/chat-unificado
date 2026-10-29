@@ -2,10 +2,10 @@
 // Guarda la sesión en el disco, renueva el token antes de que caduque y lo valida cada hora,
 // como pide Twitch a las apps que usan tokens de usuario.
 
-import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { TwitchLoginFlow } from "../core/protocol.ts";
+import { openInBrowser } from "../open-url.ts";
 import { deleteTwitchSession, loadTwitchSession, saveTwitchSession, type TwitchSession } from "../storage.ts";
 
 /** Permisos que pide la app: seguidores, suscripciones, bits y canjes de puntos. */
@@ -16,6 +16,8 @@ const HELIX_URL = "https://api.twitch.tv/helix";
 /** Se renueva el token si le quedan menos de 5 minutos. */
 const REFRESH_MARGIN = 5 * 60 * 1000;
 const VALIDATE_EVERY = 60 * 60 * 1000;
+/** Dominios que se pueden abrir en el navegador durante el inicio de sesión. */
+const TWITCH_HOSTS = ["www.twitch.tv", "id.twitch.tv"];
 
 type AuthEvents = {
   /** Cambió la sesión o el paso del inicio de sesión. */
@@ -82,7 +84,7 @@ export class TwitchAuth extends EventEmitter<AuthEvents> {
     const abort = new AbortController();
     this.#flowAbort = abort;
     this.#setFlow({ state: "waiting", userCode: data.user_code, verificationUri: data.verification_uri });
-    openInBrowser(data.verification_uri);
+    openInBrowser(data.verification_uri, TWITCH_HOSTS);
     void this.#waitForAuthorization(data, abort.signal);
   }
 
@@ -94,7 +96,7 @@ export class TwitchAuth extends EventEmitter<AuthEvents> {
 
   /** Vuelve a abrir la página de autorización si el usuario la cerró. */
   openLoginPage(): void {
-    if (this.#flow.state === "waiting") openInBrowser(this.#flow.verificationUri);
+    if (this.#flow.state === "waiting") openInBrowser(this.#flow.verificationUri, TWITCH_HOSTS);
   }
 
   async #waitForAuthorization(
@@ -255,13 +257,4 @@ async function errorMessage(response: Response): Promise<string> {
   } catch {
     return text || `HTTP ${response.status}`;
   }
-}
-
-/** Abre la página de Twitch en el navegador del sistema. Solo acepta direcciones de Twitch. */
-function openInBrowser(url: string): void {
-  if (!/^https:\/\/(www|id)\.twitch\.tv\//.test(url)) return;
-  // rundll32 abre la URL tal cual; con "cmd /c start" el & de la URL se interpretaría como comando.
-  const [command, args] =
-    process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", url]] : process.platform === "darwin" ? ["open", [url]] : ["xdg-open", [url]];
-  spawn(command, args, { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
 }

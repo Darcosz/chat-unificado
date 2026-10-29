@@ -206,10 +206,14 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 
 ### 4.3 YouTube
 
-- **Chat:** API oficial con `liveChatMessages.streamList`, conexión abierta de baja latencia.
+- **Chat (principal): InnerTube**, las peticiones internas que usa la propia página de YouTube para mostrar el chat (como hacen Social Stream Ninja y librerías como `youtube-chat`). Sin cuota y con ~1 s de retraso (se consulta cada 1-2 s); se lee la vista "Chat en vivo" (todos los mensajes). Es anónimo, así que funciona con directos públicos y sin listar, no con privados. No es oficial: si deja de funcionar, la app pasa sola a la API oficial.
+- **Chat (respaldo):** API oficial con `liveChatMessages.streamList`, conexión abierta de baja latencia. Solo existe por **gRPC** (`youtube.googleapis.com:443`). YouTube cierra cada flujo a los ~10 s: la app lo reabre 4 s después donde iba (`nextPageToken`), sin perder mensajes. Como el flujo a menudo es rechazado ("overloaded"), la app usa de respaldo `liveChatMessages.list` (REST) cada 10 s durante 2 minutos y vuelve a probar el flujo; los dos comparten `nextPageToken`. En la práctica el chat de YouTube puede llegar con hasta ~10 s de retraso.
+- **Directo activo:** se busca con `liveBroadcasts.list` (`broadcastStatus=active`, 1 unidad). Sin directo, se vuelve a buscar cada 1-3 minutos; al terminar, se espera el siguiente.
 - **Alertas:** Super Chats y membresías llegan como tipos de mensaje especiales.
 - **Login:** OAuth de Google con botón (cliente de tipo "App de escritorio").
-- **Cuota:** 10,000 unidades diarias por defecto; cada llamada a `streamList` cuesta 5 unidades. Evitar reconexiones en bucle.
+- **Cuota:** 10,000 unidades diarias por defecto; cada llamada a `streamList` cuesta 5 unidades. Evitar reconexiones en bucle. Con el respaldo REST cada 10 s son unas 1,800 unidades por hora de directo: alcanza para unas 5,5 horas diarias (con el flujo gRPC funcionando, algo más). Se puede pedir a Google un aumento de cuota gratuito si hace falta. Si cada persona usa su propio proyecto de Google, no comparten cuota.
+- **Login:** redirección a la propia app (`http://127.0.0.1:4848/oauth/google/callback`) con PKCE; permiso único `youtube.readonly`. La pantalla de consentimiento pide página principal y política de privacidad para pasar a producción: se usan el repositorio público y su `PRIVACY.md`.
+- **Alertas:** Super Chat y Super Sticker (SUPER CHAT), membresía nueva e hitos (MIEMBRO), membresías regaladas (SUB REGALADA: "regaló N membresías") y regalos de YouTube (REGALO, combos agrupados).
 - **Evitar reconectar cada 7 días:** en estado "Testing" los refresh tokens caducan a los 7 días. Pasar la pantalla de consentimiento a estado **"In production"** sin solicitar verificación: los tokens dejan de caducar (salvo que se revoquen o pasen unos 6 meses sin uso). La app sin verificar admite hasta 100 usuarios, de sobra para dos personas. A cambio, al conectar por primera vez Google muestra el aviso de "app no verificada": se acepta con **Configuración avanzada → Ir a la app**. Solo se hace una vez.
 
 ### 4.4 Kick

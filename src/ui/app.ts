@@ -3,7 +3,7 @@
 
 import { PLATFORMS, isChat, type ChatEvent, type ChatHighlight, type EventType, type Platform } from "../core/event.ts";
 import { STATUS_TEXT, type ConnectionStatus, type ServerMessage } from "../core/protocol.ts";
-import { onChange, renderSettings, renderTwitch, setCardStatus, setVersion } from "./settings.ts";
+import { onChange, renderSettings, renderTwitch, renderYouTube, setCardStatus, setVersion } from "./settings.ts";
 
 type Filter = Platform | "all";
 type Category = "followers" | "subscription" | "money" | "points" | "raid";
@@ -283,6 +283,10 @@ function alertTitle(event: ChatEvent): string {
     case "sub":
       return event.amount && event.amount > 1 ? `${name} se suscribió · ${formatNumber(event.amount)} meses` : `${name} se suscribió`;
     case "giftsub":
+      // En YouTube son membresías regaladas; en Twitch, subs.
+      if (event.platform === "youtube") {
+        return event.amount && event.amount > 1 ? `${name} regaló ${formatNumber(event.amount)} membresías` : `${name} regaló una membresía`;
+      }
       return event.amount && event.amount > 1 ? `${name} regaló ${formatNumber(event.amount)} subs` : `${name} regaló una sub`;
     case "member":
       return event.amount && event.amount > 1 ? `${name} es miembro · ${formatNumber(event.amount)} meses` : `${name} se hizo miembro`;
@@ -379,6 +383,7 @@ function receive(message: ServerMessage): void {
       setVersion(message.version);
       renderSettings(message.config);
       renderTwitch(message.twitch);
+      renderYouTube(message.youtube);
       chatList.replaceChildren();
       alertList.replaceChildren();
       for (const platform of PLATFORMS) {
@@ -401,6 +406,9 @@ function receive(message: ServerMessage): void {
       break;
     case "twitch":
       renderTwitch(message.twitch);
+      break;
+    case "youtube":
+      renderYouTube(message.youtube);
       break;
   }
 }

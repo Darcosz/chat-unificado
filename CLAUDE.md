@@ -53,7 +53,23 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 
 ## Fase actual
 
-**Fase 2 — TikTok, en pruebas.** Hecho y probado con un live real (`deusamirr`):
+**Fase 3 — YouTube, en pruebas.** Hecho:
+
+- Proyecto de Google Cloud con YouTube Data API v3, pantalla de consentimiento "In production" sin verificar (política de privacidad en `PRIVACY.md` del repo público) y cliente OAuth "App de escritorio". `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en `.env`.
+- Login en `src/youtube/auth.ts`: redirección a `http://127.0.0.1:<puerto>/oauth/google/callback` (página GET del servidor) con PKCE y `state`; `access_type=offline` + `prompt=consent` para el refresh token. Permiso único `youtube.readonly`. Sesión en `youtube-session.json`; se renueva sola y "Desconectar" revoca el token. Probado con el canal ArcoszCR.
+- Conector en `src/connectors/youtube.ts`: busca el directo activo con `liveBroadcasts.list?broadcastStatus=active&broadcastType=all` (1 unidad; **no** combinar con `mine`: da `incompatibleParameters`); sin directo reintenta de 1 a 3 min.
+- Chat con `liveChatMessages.streamList`, que **solo existe por gRPC** (`youtube.googleapis.com:443`, token en la cabecera `authorization`). Librerías `@grpc/grpc-js` y `@grpc/proto-loader` (JS puro); definición en `src/youtube/stream-list.proto` (recortada del oficial, Apache 2.0).
+- **YouTube cierra cada flujo a los ~10 s** aunque haya chat; se reabre 4 s después con `nextPageToken` (no se pierden mensajes).
+- **`streamList` es inestable:** a menudo responde "overloaded" (código 14 `UNAVAILABLE`) sin importar la espera. Entonces se pasa 2 min a `liveChatMessages.list` (REST) cada **10 s** (decidido con el usuario: ~1,800 u/h) y se vuelve a probar el flujo. Los dos comparten `nextPageToken` (comprobado). REST da los tipos en camelCase (`textMessageEvent`) y se convierten al formato del `.proto`.
+- **Lector principal: InnerTube** (`src/youtube/innertube.ts`, decidido con el usuario tras comparar con Social Stream Ninja). Son las peticiones internas de la página de YouTube: se abre `youtube.com/live_chat?is_popout=1&v=<id>`, se toma la versión del cliente y el token de la vista **"Chat en vivo"** (el último del selector; la de por defecto, "Chat destacado", filtra mensajes) y se consulta `youtubei/v1/live_chat/get_live_chat` cada 1-2 s (YouTube sugiere ~5 s, pero así el retraso medido bajó de 4,6 s a 1,1 s de mediana; no gasta cuota). Sin cuota, sin login (anónimo: sirve para directos públicos y sin listar, **no privados**), escrito a mano sin librerías. No es oficial: puede romperse.
+- Orden del conector: busca el directo con la API oficial (1 unidad) → lee por InnerTube → si falla 3 veces seguidas, usa la API oficial (gRPC + REST) 10 min y vuelve a probar. Al cambiar de fuente se ignora lo ya mostrado (por fecha), sin repetir. Con la API oficial la tarjeta dice "Usando la API oficial de respaldo".
+- Todas las fuentes se traducen a `YouTubeChatItem` (`src/youtube/chat-item.ts`, forma de la API oficial); InnerTube añade `fragments` con los emojis propios del canal como imagen. Pruebas en `innertube.test.ts`.
+- Tipos: mensajes, Super Chat y Super Sticker (`superchat`), membresía nueva e hito (`member`), membresías regaladas (`giftsub`, se muestra "regaló N membresías") y regalos (`gift`, combos agrupados por id). El historial inicial anterior a la conexión no se muestra. NUEVO con el registro de usuarios vistos.
+- Probado con un directo propio sin listar: la app lo encuentra sola y los mensajes llegan por InnerTube con 0,1-2,2 s de retraso (1,1 s de mediana), con los emojis del canal como imagen. Las reglas comparan los nombres sin @ (YouTube manda "@canal"), así que los mensajes del propio streamer no se marcan como PREGUNTA. Las tarjetas de configuración muestran el motivo del estado (`card-detail`).
+
+Pendiente de la fase 3: ver en un directo real un Super Chat o una membresía (no se pueden simular sin dinero).
+
+**Fase 2 — TikTok, terminada.** Probado con lives reales (`deusamirr`, `pinkyshoww`):
 
 - Conector en `src/connectors/tiktok.ts` con `tiktok-live-connector` 2.5: chat, follows, regalos y compartidos (tipo `share`). Usuario y clave de Euler en la configuración.
 - Regalos de combo: se espera al evento con `repeatEnd` y se muestra una sola alerta con el total (si nunca llega, tras 8 s sin novedades).
@@ -87,7 +103,7 @@ La fase 1 (Twitch) está terminada:
 
 - Emotes de 7TV, BTTV y FFZ (ahora se ven como texto).
 - Probar en un stream real: follows, subs, subs regaladas, bits y raids. Solo se probó en vivo el canje de puntos; las suscripciones de EventSub sí están activas.
-- Probar la renovación real del token (a las ~4 h) y la reconexión tras un corte de internet.
+- Probar la reconexión tras un corte de internet. (La renovación del token ya se comprobó: la sesión de días antes entró sola.)
 - Opcional: ocultar o tachar mensajes borrados por moderadores y de usuarios baneados.
 
 ### Para la fase 5 (Electron)
@@ -95,4 +111,5 @@ La fase 1 (Twitch) está terminada:
 - Aplicar "Siempre encima", "Iniciar con Windows" y la opacidad (ya se guardan en la configuración).
 - Cifrar la sesión de Twitch y la clave de Euler con `safeStorage` (ahora van en JSON sin cifrar, solo en la PC del usuario).
 - Incluir el Client ID de Twitch en la app para que el hermano no tenga que configurar `.env`.
-- Abrir la página de autorización con `shell.openExternal` (ahora se usa `rundll32` desde el backend).
+- Abrir la página de autorización con `shell.openExternal` (ahora se usa `rundll32` desde el backend, en `src/open-url.ts`).
+- Incluir `src/youtube/stream-list.proto` en el paquete (se lee en tiempo de ejecución) y los datos de Google en la app.

@@ -82,6 +82,39 @@ export function saveTwitchSession(session: TwitchSession): Promise<void> {
   return writeJson(TWITCH_SESSION_FILE, session);
 }
 
+/** Tokens de Google para YouTube. Va aparte de la configuración porque es un secreto. */
+const YOUTUBE_SESSION_FILE = join(DATA_DIR, "youtube-session.json");
+
+export interface YouTubeSession {
+  accessToken: string;
+  refreshToken: string;
+  /** Momento en que caduca el access token (ms desde 1970). */
+  expiresAt: number;
+  channelId: string;
+  title: string;
+}
+
+export async function loadYouTubeSession(): Promise<YouTubeSession | undefined> {
+  const value = (await readJson(YOUTUBE_SESSION_FILE)) as Partial<YouTubeSession> | undefined;
+  const valid =
+    value &&
+    typeof value.accessToken === "string" &&
+    typeof value.refreshToken === "string" &&
+    typeof value.expiresAt === "number" &&
+    typeof value.channelId === "string" &&
+    typeof value.title === "string";
+  return valid ? (value as YouTubeSession) : undefined;
+}
+
+export function saveYouTubeSession(session: YouTubeSession): Promise<void> {
+  return writeJson(YOUTUBE_SESSION_FILE, session);
+}
+
+export function deleteYouTubeSession(): Promise<void> {
+  queue = queue.catch(() => {}).then(() => rm(YOUTUBE_SESSION_FILE, { force: true }));
+  return queue;
+}
+
 /** Ids de usuarios que ya escribieron alguna vez, por plataforma (para la etiqueta NUEVO). */
 const SEEN_USERS_FILE = join(DATA_DIR, "seen-users.json");
 

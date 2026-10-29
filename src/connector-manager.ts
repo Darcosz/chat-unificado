@@ -10,9 +10,11 @@ import { applyRules, type RuleContext } from "./core/rules.ts";
 import { DemoConnector } from "./connectors/demo.ts";
 import { TikTokConnector } from "./connectors/tiktok.ts";
 import { TwitchConnector, type TwitchAlertsOptions } from "./connectors/twitch.ts";
+import { YouTubeConnector } from "./connectors/youtube.ts";
 import type { SeenUsers } from "./seen-users.ts";
 import type { LocalServer } from "./server.ts";
 import type { TwitchAuth } from "./twitch/auth.ts";
+import type { GoogleAuth } from "./youtube/auth.ts";
 
 interface Wanted {
   /** Identifica la configuración del conector: si cambia, se recrea. */
@@ -26,6 +28,7 @@ export class ConnectorManager {
   readonly #twitchAuth: TwitchAuth;
   readonly #onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"];
   readonly #seenUsers: SeenUsers;
+  readonly #googleAuth: GoogleAuth;
   readonly #active = new Map<Platform, { key: string; connector: Connector }>();
   #queue: Promise<void> = Promise.resolve();
   #rules: RuleContext = { mentionNames: [], ownNames: [] };
@@ -36,7 +39,9 @@ export class ConnectorManager {
     twitchAuth: TwitchAuth;
     onTwitchAlertsStatus: TwitchAlertsOptions["onStatus"];
     seenUsers: SeenUsers;
+    googleAuth: GoogleAuth;
   }) {
+    this.#googleAuth = options.googleAuth;
     this.#server = options.server;
     this.#demoMode = options.demoMode;
     this.#twitchAuth = options.twitchAuth;
@@ -68,6 +73,7 @@ export class ConnectorManager {
       account?.login ?? "",
       account?.displayName ?? "",
       config.platforms.tiktok.username,
+      this.#googleAuth.account?.title ?? "",
     ].filter(Boolean);
     return { ownNames, mentionNames: [...ownNames, ...config.tags.mentions] };
   }
@@ -89,7 +95,12 @@ export class ConnectorManager {
       return { key: `tiktok:${username}:${eulerKey}`, create: () => new TikTokConnector(username, eulerKey) };
     }
 
-    // YouTube y Kick llegan en sus fases. Mientras, en modo demo se simulan.
+    const youtubeAccount = this.#googleAuth.account;
+    if (platform === "youtube" && youtubeAccount) {
+      return { key: `youtube:${youtubeAccount.channelId}`, create: () => new YouTubeConnector(this.#googleAuth) };
+    }
+
+    // Kick llega en su fase. Mientras, en modo demo se simula (igual que las plataformas sin cuenta).
     if (this.#demoMode) return { key: "demo", create: () => new DemoConnector(platform) };
     return undefined;
   }

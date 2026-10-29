@@ -48,8 +48,10 @@ export function applyRules(event: ChatEvent, context: RuleContext): ChatEvent {
   if (event.type !== "chat") return event;
 
   const text = event.text ?? "";
-  const ownNames = new Set(context.ownNames.map(normalize));
-  const isOwn = ownNames.has(normalize(event.user.name)) || (event.user.login !== undefined && ownNames.has(normalize(event.user.login)));
+  // Sin @ al comparar: YouTube muestra los nombres como "@canal".
+  const bare = (name: string) => normalize(name).replace(/^@/, "");
+  const ownNames = new Set(context.ownNames.map(bare));
+  const isOwn = ownNames.has(bare(event.user.name)) || (event.user.login !== undefined && ownNames.has(bare(event.user.login)));
   const question = !isOwn && (hasQuestionMark(text) || mentions(text, context.mentionNames));
 
   return { ...event, flags: { ...event.flags, question } };

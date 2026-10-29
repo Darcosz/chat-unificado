@@ -7,12 +7,21 @@
 import { readFile } from "node:fs/promises";
 import { styleText } from "node:util";
 import { applyChanges, cleanTwitchChannel, toPublic } from "./core/config.ts";
-import { STATUS_TEXT, TWITCH_ROUTES, type ConnectionStatus, type TwitchState } from "./core/protocol.ts";
+import {
+  GOOGLE_CALLBACK_ROUTE,
+  STATUS_TEXT,
+  TWITCH_ROUTES,
+  YOUTUBE_ROUTES,
+  type ConnectionStatus,
+  type TwitchState,
+  type YouTubeState,
+} from "./core/protocol.ts";
 import { ConnectorManager } from "./connector-manager.ts";
 import { LocalServer } from "./server.ts";
 import { SeenUsers } from "./seen-users.ts";
 import { DATA_DIR, loadConfig, saveConfig } from "./storage.ts";
 import { TwitchAuth } from "./twitch/auth.ts";
+import { GoogleAuth } from "./youtube/auth.ts";
 
 const args = process.argv.slice(2);
 const demoMode = args.includes("--demo");
@@ -56,6 +65,22 @@ async function useAccountChannel(): Promise<void> {
   server.publishConfig(toPublic(config));
 }
 
+// ---------- YouTube: sesión de Google ----------
+
+const googleAuth = new GoogleAuth({
+  clientId: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  // Google acepta cualquier puerto en 127.0.0.1 para los clientes de escritorio.
+  redirectUri: `http://127.0.0.1:${port}${GOOGLE_CALLBACK_ROUTE}`,
+});
+await googleAuth.init();
+if (!googleAuth.available) console.log(styleText("yellow", "Faltan GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en .env: no se podrá conectar YouTube."));
+
+function youtubeState(): YouTubeState {
+  const account = googleAuth.account;
+  return { available: googleAuth.available, account: account ?? null, login: googleAuth.flow };
+}
+
 // ---------- Servidor y conectores ----------
 
 const server = new LocalServer({
@@ -70,11 +95,19 @@ const server = new LocalServer({
     return toPublic(config);
   },
   twitch: twitchState(),
+  youtube: youtubeState(),
   actions: {
     [TWITCH_ROUTES.login]: () => twitchAuth.startLogin(),
     [TWITCH_ROUTES.cancelLogin]: async () => twitchAuth.cancelLogin(),
     [TWITCH_ROUTES.openLoginPage]: async () => twitchAuth.openLoginPage(),
     [TWITCH_ROUTES.logout]: () => twitchAuth.logout(),
+    [YOUTUBE_ROUTES.login]: async () => googleAuth.startLogin(),
+    [YOUTUBE_ROUTES.cancelLogin]: async () => googleAuth.cancelLogin(),
+    [YOUTUBE_ROUTES.openLoginPage]: async () => googleAuth.openLoginPage(),
+    [YOUTUBE_ROUTES.logout]: () => googleAuth.logout(),
+  },
+  pages: {
+    [GOOGLE_CALLBACK_ROUTE]: (params) => googleAuth.handleCallback(params),
   },
 });
 
@@ -84,6 +117,7 @@ const manager = new ConnectorManager({
   server,
   demoMode,
   twitchAuth,
+  googleAuth,
   seenUsers,
   onTwitchAlertsStatus: (status, detail) => {
     twitchAlerts = detail === undefined ? { status } : { status, detail };
@@ -98,6 +132,11 @@ twitchAuth.on("change", () => {
   void useAccountChannel().then(() => manager.apply(config));
 });
 
+googleAuth.on("change", () => {
+  server.publishYouTube(youtubeState());
+  void manager.apply(config);
+});
+
 try {
   await server.start();
 } catch (error) {
@@ -108,6 +147,7 @@ try {
 console.log(`Interfaz lista en ${styleText(["cyan", "bold"], `http://localhost:${port}`)}`);
 console.log(styleText("gray", `Datos guardados en ${DATA_DIR}`));
 if (twitchAuth.account) console.log(styleText("gray", `Sesión de Twitch: ${twitchAuth.account.displayName}`));
+if (googleAuth.account) console.log(styleText("gray", `Sesión de YouTube: ${googleAuth.account.title}`));
 await useAccountChannel();
 await manager.apply(config);
 

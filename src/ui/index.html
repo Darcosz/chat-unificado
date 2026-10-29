@@ -70,6 +70,7 @@
                     <span></span>
                   </label>
                 </div>
+                <p class="card-detail" data-detail-of="twitch" hidden></p>
                 <!-- Sin sesión: solo chat, leído de forma anónima. -->
                 <div class="card-body" id="twitch-anonymous">
                   <label class="field">
@@ -111,6 +112,7 @@
                     <span></span>
                   </label>
                 </div>
+                <p class="card-detail" data-detail-of="tiktok" hidden></p>
                 <label class="field">
                   <span>Usuario de TikTok</span>
                   <input type="text" id="tiktok-username" placeholder="@usuario" spellcheck="false" />
@@ -136,8 +138,32 @@
                     <span></span>
                   </label>
                 </div>
-                <p class="note">Se abrirá el navegador para que autorices tu cuenta de Google. Se recibe: chat, Super Chats y membresías.</p>
-                <button class="button" type="button" disabled title="Disponible en la fase 3">Conectar con YouTube</button>
+                <p class="card-detail" data-detail-of="youtube" hidden></p>
+                <!-- Sin sesión. -->
+                <div class="card-body" id="youtube-anonymous">
+                  <p class="note">Se abrirá el navegador para que autorices tu cuenta de Google (solo lectura). Se recibe: chat, Super Chats y membresías.</p>
+                  <p class="field-error" id="youtube-login-error" hidden></p>
+                  <button class="button button-primary" type="button" id="youtube-login">Conectar con YouTube</button>
+                </div>
+
+                <!-- Esperando a que el usuario autorice en Google. -->
+                <div class="card-body" id="youtube-waiting" hidden>
+                  <p class="note">
+                    Se abrió Google en tu navegador: elige tu cuenta y autoriza. Si aparece «Google no verificó esta app», entra en
+                    <strong>Configuración avanzada → Ir a Chat Unificado</strong> (solo la primera vez).
+                  </p>
+                  <div class="button-row">
+                    <button class="button" type="button" id="youtube-open">Abrir la página otra vez</button>
+                    <button class="button" type="button" id="youtube-cancel">Cancelar</button>
+                  </div>
+                </div>
+
+                <!-- Con sesión. -->
+                <div class="card-body" id="youtube-account" hidden>
+                  <p class="account-line">Canal conectado: <strong id="youtube-account-name"></strong></p>
+                  <p class="note">Se recibe: chat, Super Chats, Super Stickers, membresías y regalos. La app busca sola tu directo cuando empiezas.</p>
+                  <button class="button" type="button" id="youtube-logout">Desconectar</button>
+                </div>
               </article>
 
               <article class="card" data-platform="kick">
@@ -150,6 +176,7 @@
                     <span></span>
                   </label>
                 </div>
+                <p class="card-detail" data-detail-of="kick" hidden></p>
                 <p class="note">Se abrirá el navegador para que autorices tu cuenta de Kick. Se recibe: chat, follows, subs y Kicks.</p>
                 <button class="button" type="button" disabled title="Disponible en la fase 4">Conectar con Kick</button>
               </article>

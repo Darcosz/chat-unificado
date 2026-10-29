@@ -650,6 +650,18 @@ p.card-status {
   margin: 0;
 }
 
+/* Motivo del estado de la conexión (por ejemplo, "No hay ningún directo activo"). */
+.card-detail {
+  margin: -4px 0 0;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.card-detail[hidden] {
+  display: none;
+}
+
 .card[data-disabled] > :not(.card-header) {
   opacity: 0.45;
 }

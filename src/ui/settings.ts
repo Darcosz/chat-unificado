@@ -3,7 +3,7 @@
 
 import { cleanTiktokUsername, cleanTwitchChannel, type ConfigChanges, type PublicConfig } from "../core/config.ts";
 import type { Platform } from "../core/event.ts";
-import { CONFIG_ROUTE, STATUS_TEXT, TWITCH_ROUTES, type ConnectionStatus, type TwitchState } from "../core/protocol.ts";
+import { CONFIG_ROUTE, STATUS_TEXT, TWITCH_ROUTES, YOUTUBE_ROUTES, type ConnectionStatus, type TwitchState, type YouTubeState } from "../core/protocol.ts";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -76,6 +76,13 @@ export function setCardStatus(platform: Platform, status: ConnectionStatus, deta
   label.dataset.status = status;
   label.textContent = STATUS_TEXT[status];
   label.title = detail ?? "";
+
+  // El motivo (por ejemplo "No hay ningún directo activo") se ve debajo de la cabecera.
+  const detailLine = form.querySelector<HTMLElement>(`[data-detail-of="${platform}"]`);
+  if (detailLine) {
+    detailLine.textContent = detail ?? "";
+    detailLine.hidden = !detail;
+  }
 }
 
 // ---------- Guardar ----------
@@ -235,7 +242,7 @@ export function renderTwitch(state: TwitchState): void {
 }
 
 /** Pide una acción al servidor; los cambios llegan después por WebSocket. */
-async function twitchAction(route: string, button: HTMLButtonElement): Promise<void> {
+async function postAction(route: string, button: HTMLButtonElement): Promise<void> {
   button.disabled = true;
   try {
     const response = await fetch(route, { method: "POST" });
@@ -254,7 +261,39 @@ for (const [id, route] of [
   ["twitch-logout", TWITCH_ROUTES.logout],
 ] as const) {
   const button = $<HTMLButtonElement>(id);
-  button.addEventListener("click", () => void twitchAction(route, button));
+  button.addEventListener("click", () => void postAction(route, button));
+}
+
+// ---------- Cuenta de YouTube ----------
+
+const youtubeViews = {
+  anonymous: $("youtube-anonymous"),
+  waiting: $("youtube-waiting"),
+  account: $("youtube-account"),
+};
+const youtubeLogin = $<HTMLButtonElement>("youtube-login");
+const youtubeLoginError = $("youtube-login-error");
+
+export function renderYouTube(state: YouTubeState): void {
+  const view = state.account ? "account" : state.login.state === "waiting" ? "waiting" : "anonymous";
+  for (const [name, element] of Object.entries(youtubeViews)) element.hidden = name !== view;
+
+  youtubeLogin.disabled = !state.available;
+  youtubeLogin.title = state.available ? "" : "Faltan GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en el archivo .env";
+  youtubeLoginError.hidden = state.login.state !== "error";
+  if (state.login.state === "error") youtubeLoginError.textContent = state.login.message;
+
+  if (state.account) $("youtube-account-name").textContent = state.account.title;
+}
+
+for (const [id, route] of [
+  ["youtube-login", YOUTUBE_ROUTES.login],
+  ["youtube-open", YOUTUBE_ROUTES.openLoginPage],
+  ["youtube-cancel", YOUTUBE_ROUTES.cancelLogin],
+  ["youtube-logout", YOUTUBE_ROUTES.logout],
+] as const) {
+  const button = $<HTMLButtonElement>(id);
+  button.addEventListener("click", () => void postAction(route, button));
 }
 
 // ---------- Dock de OBS ----------
