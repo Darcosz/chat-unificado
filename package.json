@@ -1,6 +1,6 @@
 {
   "name": "chat-unificado",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Chat y alertas de Twitch, TikTok, YouTube y Kick en una sola ventana",
   "private": true,
   "type": "module",
