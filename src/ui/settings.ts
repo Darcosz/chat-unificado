@@ -1,7 +1,7 @@
 // Pantalla de configuración: pinta la configuración que manda el servidor y le envía
 // cada cambio en cuanto el usuario lo hace (no hay botón de "Guardar").
 
-import { cleanTiktokUsername, cleanTwitchChannel, type ConfigChanges, type PublicConfig } from "../core/config.ts";
+import { cleanKickChannel, cleanTiktokUsername, cleanTwitchChannel, type ConfigChanges, type PublicConfig } from "../core/config.ts";
 import type { Platform } from "../core/event.ts";
 import { CONFIG_ROUTE, STATUS_TEXT, TWITCH_ROUTES, YOUTUBE_ROUTES, type ConnectionStatus, type TwitchState, type YouTubeState } from "../core/protocol.ts";
 
@@ -13,6 +13,8 @@ const twitchChannelError = $("twitch-channel-error");
 const tiktokUsername = $<HTMLInputElement>("tiktok-username");
 const tiktokUsernameError = $("tiktok-username-error");
 const eulerKey = $<HTMLInputElement>("euler-key");
+const kickChannel = $<HTMLInputElement>("kick-channel");
+const kickChannelError = $("kick-channel-error");
 const clearKey = $<HTMLButtonElement>("clear-key");
 const mentions = $<HTMLInputElement>("mentions");
 const opacityValue = $<HTMLOutputElement>("opacity-value");
@@ -62,6 +64,7 @@ export function renderSettings(config: PublicConfig): void {
 
   setText(twitchChannel, config.platforms.twitch.channel);
   setText(tiktokUsername, config.platforms.tiktok.username ? `@${config.platforms.tiktok.username}` : "");
+  setText(kickChannel, config.platforms.kick.channel);
   setText(mentions, config.tags.mentions.join(", "));
   eulerKey.placeholder = config.platforms.tiktok.hasEulerKey ? "•••••••• guardada" : "Pega aquí tu clave";
   clearKey.hidden = !config.platforms.tiktok.hasEulerKey;
@@ -187,6 +190,14 @@ textField(
   cleanTiktokUsername,
   (c, v) => (c.platforms.tiktok.username = v),
   (c) => c.platforms.tiktok.username,
+);
+
+textField(
+  kickChannel,
+  kickChannelError,
+  cleanKickChannel,
+  (c, v) => (c.platforms.kick.channel = v),
+  (c) => c.platforms.kick.channel,
 );
 
 textField(

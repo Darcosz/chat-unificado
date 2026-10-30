@@ -144,7 +144,7 @@ Misma ventana (860 × 820 px), con botón para volver al chat y la versión de l
 | Twitch | Sin sesión: campo **Canal** (chat anónimo) y botón **Iniciar sesión con Twitch**. Esperando: el código que debe aparecer en la página de Twitch, **Abrir la página otra vez** y **Cancelar**. Con sesión: canal conectado, qué se recibe (chat, follows, subs, bits, puntos, raids), estado de las alertas y botón **Desconectar** |
 | TikTok | Campo **Usuario de TikTok** y campo **Clave de Euler Stream** (oculta) |
 | YouTube | Sin conectar: texto explicando que se abrirá el navegador y botón **Conectar con YouTube**. Conectado: canal, qué se recibe y botón **Desconectar** |
-| Kick | Canal conectado, qué se recibe (chat, follows, subs, Kicks), botón **Desconectar** |
+| Kick | Campo **Canal de Kick** (acepta la dirección o el usuario) y qué se recibe. Sin login |
 
 Nota visible: cada persona conecta sus propias cuentas y los datos de sesión se guardan solo en esa PC.
 
@@ -178,7 +178,7 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 | Twitch | IRC (`tmi.js`) | EventSub por WebSocket | OAuth con botón | Oficial, estable |
 | TikTok | `tiktok-live-connector` | Misma librería (follows y regalos) | Solo nombre de usuario | No oficial, frágil |
 | YouTube | API oficial, `liveChatMessages.streamList` | Super Chats y membresías llegan en el mismo flujo | OAuth de Google con botón | Oficial, con cuota |
-| Kick | WebSocket de Pusher | Pusher, o webhooks oficiales | OAuth con botón | Semi-oficial |
+| Kick | Chat emergente en ventana oculta de Electron (Centrifugo) | El mismo WebSocket | Sin login | No oficial |
 
 ### 4.1 Twitch
 
@@ -218,9 +218,12 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 
 ### 4.4 Kick
 
-- **Chat y alertas:** conexión directa al WebSocket de Pusher (no requiere URL pública).
+- **Por qué no se conecta directo:** Kick protege con Cloudflare los datos del chat y no responde a lo que no sea un navegador. Esquivar esa protección no se hace.
+- **Cómo se lee:** la app de escritorio abre `kick.com/popout/<canal>/chat` en una ventana oculta de Electron (un navegador real, como un espectador) y escucha, con las herramientas de depuración de Chromium, los mensajes que la página recibe por su WebSocket. Kick ya no usa Pusher sino **Centrifugo** (`realtime.<región>.platform.kick.com`), pero conserva los nombres de evento de Pusher (`App\Events\ChatMessageEvent`...). Solo funciona en la app de escritorio, no con Node.
+- **Sin login:** basta con el nombre del canal.
+- **Eventos:** chat (con respuestas y emotes `[emote:id:nombre]`) y Kicks (`KicksGifted`: nombre del regalo y cantidad), comprobados en un directo real. Suscripciones, subs regaladas y hosts se traducen con la forma que tenían en Pusher, sin comprobar. Los follows no llegaron sin sesión.
+- **Si Cloudflare pide una comprobación,** la app no la resuelve: muestra la ventana para que la haga el usuario.
 - **Alternativa oficial:** API pública con OAuth 2.1 + PKCE y eventos por webhooks, pero requiere una URL pública (no práctico en escritorio).
-- **Login:** OAuth con botón.
 
 ## 5. Arquitectura propuesta
 
@@ -309,12 +312,12 @@ Proyecto en **TypeScript**. Se trabaja **una plataforma a la vez**, en este orde
 2. **TikTok:** conector con `tiktok-live-connector` (chat, follows y regalos), NUEVO por usuarios ya vistos, agrupación de combos de regalos y tarjeta de configuración.
 3. **YouTube:** login con Google, chat con `streamList`, Super Chats y membresías.
 4. **Empaquetado con Electron** (se adelantó a Kick): ventana flotante, bandeja, instalador y actualizaciones automáticas. ✔
-5. **Kick:** sin login; chat leído desde el chat emergente de Kick en una ventana oculta de Electron, porque Cloudflare bloquea las peticiones que no vienen de un navegador.
+5. **Kick:** sin login; chat leído desde el chat emergente de Kick en una ventana oculta de Electron, porque Cloudflare bloquea las peticiones que no vienen de un navegador. En pruebas.
 
 ## 8. Riesgos y consideraciones
 
 - **TikTok** es la integración más frágil; la UI debe mostrar claramente el estado de conexión y reconectar sola.
 - **YouTube** tiene cuota diaria; controlar reconexiones. Mantener el proyecto de Google en "In production" para que las sesiones no caduquen cada 7 días.
-- **Kick** por Pusher no es la API oficial documentada; puede cambiar.
+- **Kick** se lee de su página, no de una API oficial: si Kick cambia su chat, hay que ajustar el conector.
 - La configuración inicial de OAuth (Twitch, Google, Kick) es lo más tedioso, pero se hace una sola vez.
 - Las integraciones no oficiales pueden quedar en una zona gris respecto a los términos de cada plataforma.

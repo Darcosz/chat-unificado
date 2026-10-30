@@ -45,13 +45,25 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - Login con Google (cliente de escritorio) y chat con `liveChatMessages.streamList`, cuidando la cuota.
 - Alertas de Super Chats y membresías.
 
-**Fase 4 — Kick** (después de la fase 5)
+**Fase 4 — Kick** (después de la fase 5, en pruebas)
 - Sin login. Chat y alertas leyendo el chat emergente de Kick en una ventana oculta de Electron (Cloudflare bloquea las peticiones que no vienen de un navegador). Canal configurable en su tarjeta.
 
 **Fase 5 — Empaquetado** (hecha)
 - Electron: ventana flotante, bandeja, instalador `.exe` y actualizaciones automáticas.
 
 ## Fase actual
+
+**Fase 4 — Kick, en pruebas.** Hecho:
+
+- Sin login: en la tarjeta solo se pone el canal (`platforms.kick.channel`; `cleanKickChannel` acepta la dirección o el usuario y cambia `_` por `-`, como en las direcciones de Kick).
+- `src/desktop/kick-page.ts` abre `kick.com/popout/<canal>/chat` en una ventana oculta de Electron (sesión `persist:kick`) y escucha con `webContents.debugger` (CDP, `Network.webSocketFrameReceived`) los mensajes del WebSocket de tiempo real de la página. Kick ya **no usa Pusher sino Centrifugo** (`wss://realtime.<región>.platform.kick.com/connection/websocket`); la página se suscribe sola a `chatrooms.<id>.v2`, `channel_<id>`, etc., y dentro de cada mensaje van los nombres de Pusher (`App\Events\ChatMessageEvent`). Centrifugo junta varios mensajes en un frame, uno por línea, y manda un ping (`{}`) cada 25 s.
+- `src/kick/page.ts` es la interfaz sin Electron (`setKickPageOpener`): con `npm run server` no hay navegador y la tarjeta dice "Kick solo funciona en la app de escritorio".
+- Conector en `src/connectors/kick.ts` (pruebas en `kick.test.ts`): chat con emotes como imagen (`[emote:id:nombre]` → `files.kick.com/emotes/<id>/fullsize`) y Kicks (`KicksGifted`: "X envió Hell Yeah · 1 Kick"). **Sin comprobar:** `SubscriptionEvent`, `GiftedSubscriptionsEvent` y `StreamHostEvent` (forma de Pusher) y `FollowersUpdated`. Los eventos desconocidos se anotan una vez en la consola (`[kick] evento sin traducir`). Se quitan duplicados (la página escucha varios canales).
+- Reconexión: sin mensajes 90 s se recarga la página (luego espera más, hasta 10 min); si no carga, reintenta de 10 s a 5 min. Si Cloudflare pide comprobar que es una persona, **no se resuelve**: se muestra la ventana para que lo haga el usuario y la tarjeta lo avisa.
+- Consumo: se bloquean imágenes, video, fuentes, Stripe y Datadog (no Cloudflare ni Google), se niegan todos los permisos (si no, arranca el servicio de cámara) y la ventana no se dibuja oculta. Medido con xQc (chat muy rápido): ~480 MB en total frente a ~210 MB sin Kick; el proceso de la página de Kick ronda 100 MB.
+- Probado con xQc en vivo: conecta solo, 47 mensajes en 40 s con emotes y NUEVO. En 20 min de captura no hubo subs, subs regaladas, hosts ni follows.
+
+Pendientes de la fase 4: ver en un directo real subs, subs regaladas y hosts (y si llegan follows); medir el consumo en un stream largo.
 
 **Fase 5 — Empaquetado con Electron, hecha** (se adelantó a Kick: Kick necesita el navegador integrado de Electron, ver más abajo).
 
@@ -66,7 +78,8 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - Medido: app empaquetada con Twitch conectado, **~240 MB de memoria privada y 0,4-0,8 % de un núcleo de CPU**. Instalador de 118,5 MB.
 - Actualizaciones: para publicar una versión se sube a una release de GitHub (etiqueta `vX.Y.Z`) el `.exe`, el `.blockmap` y `latest.yml` de `release/`; las apps instaladas con "Actualizar automáticamente" la descargan solas.
 
-Siguiente: **Fase 4 — Kick con el navegador integrado de Electron.** Kick protege con Cloudflare los datos del chat (número del chatroom y configuración en tiempo real, que ahora puede ser Pusher o Centrifugo) y bloquea a lo que no sea un navegador; esquivarlo (por ejemplo con `curl`) es saltarse una protección anti-bots y **no se hace**. El plan acordado: abrir `kick.com/popout/<canal>/chat` en una ventana oculta de Electron (un navegador real, como Social Stream Ninja) y leer de ahí los mensajes; solo si Kick está encendido y en bajo consumo. Sin login.
+Kick protege con Cloudflare los datos del chat y bloquea a lo que no sea un navegador; esquivarlo (por ejemplo con `curl`) es saltarse una protección anti-bots y **no se hace**. Por eso Kick se lee desde el navegador integrado de Electron (ver la fase 4).
+- **Modo Node (`npm run server`/`npm run demo`) y la clave de Euler:** con Node no se puede descifrar la clave; antes, al guardar cualquier cambio desde ahí, se escribía vacía (le pasó al usuario el 30/10/2026 y tuvo que volver a pegarla). Ahora `storage.ts` conserva la clave cifrada tal cual mientras no se escriba una nueva.
 
 **Fase 3 — YouTube, en pruebas.** Hecho:
 
@@ -127,6 +140,6 @@ La fase 1 (Twitch) está terminada:
 
 ### Pendientes de la fase 5
 
-- Publicar la primera release en GitHub para que funcionen las actualizaciones automáticas.
+- Release `v0.1.0` publicada el 30/10/2026 (a mano desde la web: no hay `gh` instalado). Los archivos se suben con guiones en el nombre (`Chat-Unificado-Setup-X.Y.Z.exe` y su `.blockmap`), que es como los busca `latest.yml`; los de `release/` tienen espacios y hay que renombrarlos. Para una versión nueva: subir `version` en `package.json`, `npm run dist` y publicar una release `vX.Y.Z` (sin marcar "pre-release").
 - Medir la app durante un stream real junto a OBS y los demás programas.
 - Sin firma de código: la primera instalación muestra el aviso de SmartScreen (Más información → Ejecutar de todas formas).

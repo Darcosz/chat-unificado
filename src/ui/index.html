@@ -177,8 +177,12 @@
                   </label>
                 </div>
                 <p class="card-detail" data-detail-of="kick" hidden></p>
-                <p class="note">Se abrirá el navegador para que autorices tu cuenta de Kick. Se recibe: chat, follows, subs y Kicks.</p>
-                <button class="button" type="button" disabled title="Disponible en la fase 4">Conectar con Kick</button>
+                <label class="field">
+                  <span>Canal de Kick</span>
+                  <input type="text" id="kick-channel" placeholder="nombre-del-canal" spellcheck="false" />
+                  <small class="field-error" id="kick-channel-error" hidden>Nombre de canal no válido.</small>
+                </label>
+                <p class="note">Sin iniciar sesión: la app abre el chat de tu canal en una ventana oculta. Se recibe: chat, Kicks, subs, subs regaladas y hosts (los follows todavía no). Solo en la app de escritorio.</p>
               </article>
             </div>
             <p class="note privacy-note">Cada persona conecta sus propias cuentas. Los datos de sesión se guardan solo en esta PC.</p>

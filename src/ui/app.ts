@@ -295,7 +295,10 @@ function alertTitle(event: ChatEvent): string {
     case "superchat":
       return `${name} envió un Super Chat${event.detail ? ` de ${event.detail}` : ""}`;
     case "kicks":
-      return `${name} envió ${formatNumber(event.amount)} Kicks`;
+      // En Kick los Kicks se envían como regalos con nombre ("Hell Yeah").
+      return event.detail
+        ? `${name} envió ${event.detail} · ${formatNumber(event.amount)} ${event.amount === 1 ? "Kick" : "Kicks"}`
+        : `${name} envió ${formatNumber(event.amount)} Kicks`;
     case "gift":
       return `${name} envió ${event.detail ?? "un regalo"} × ${formatNumber(event.amount ?? 1)}`;
     case "reward":

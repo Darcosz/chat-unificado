@@ -61,6 +61,12 @@ async function unseal(raw: unknown): Promise<unknown> {
 
 const ENCRYPTED_PREFIX = "enc:";
 
+/**
+ * Clave de Euler cifrada que no se pudo descifrar (con Node no hay codificador). Se conserva
+ * tal cual al guardar para no borrarla; solo se reemplaza si se escribe una clave nueva.
+ */
+let unreadableEulerKey: string | undefined;
+
 let queue: Promise<void> = Promise.resolve();
 
 /** Guarda en orden y de forma atómica (archivo temporal + renombrar) para no dejar un JSON a medias. */
@@ -82,6 +88,7 @@ export async function loadConfig(): Promise<Config> {
   const tiktok = (value as { platforms?: { tiktok?: { eulerKey?: unknown } } }).platforms?.tiktok;
   if (tiktok && typeof tiktok.eulerKey === "string" && tiktok.eulerKey.startsWith(ENCRYPTED_PREFIX)) {
     const key = await unseal({ encrypted: tiktok.eulerKey.slice(ENCRYPTED_PREFIX.length) });
+    unreadableEulerKey = typeof key === "string" ? undefined : tiktok.eulerKey;
     tiktok.eulerKey = typeof key === "string" ? key : "";
   }
   return validateConfig(value);
@@ -89,6 +96,10 @@ export async function loadConfig(): Promise<Config> {
 
 export async function saveConfig(config: Config): Promise<void> {
   const { eulerKey } = config.platforms.tiktok;
+  if (eulerKey) unreadableEulerKey = undefined;
+  if (unreadableEulerKey) {
+    return writeJson(CONFIG_FILE, { ...config, platforms: { ...config.platforms, tiktok: { ...config.platforms.tiktok, eulerKey: unreadableEulerKey } } });
+  }
   if (!codec || !eulerKey) return writeJson(CONFIG_FILE, config);
   const sealed = ((await seal(eulerKey)) as { encrypted: string }).encrypted;
   return writeJson(CONFIG_FILE, {

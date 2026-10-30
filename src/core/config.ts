@@ -9,7 +9,8 @@ export interface Config {
     twitch: { enabled: boolean; channel: string };
     tiktok: { enabled: boolean; username: string; eulerKey: string };
     youtube: { enabled: boolean };
-    kick: { enabled: boolean };
+    /** Canal de Kick tal como aparece en su dirección (kick.com/<canal>). */
+    kick: { enabled: boolean; channel: string };
   };
   window: {
     alwaysOnTop: boolean;
@@ -51,7 +52,7 @@ export function defaultConfig(): Config {
       twitch: { enabled: true, channel: "" },
       tiktok: { enabled: true, username: "", eulerKey: "" },
       youtube: { enabled: true },
-      kick: { enabled: true },
+      kick: { enabled: true, channel: "" },
     },
     window: { alwaysOnTop: true, startWithWindows: false, textSize: "normal", alertsSide: "right", opacity: 1 },
     tags: { markNew: true, markQuestion: true, mentions: [] },
@@ -86,11 +87,21 @@ export function cleanTiktokUsername(username: string): string {
   return /^[A-Za-z0-9_.]{1,24}$/.test(clean) ? clean : "";
 }
 
+/**
+ * Canal de Kick como aparece en su dirección: minúsculas y con guiones en lugar de guiones
+ * bajos (el usuario "mi_canal" está en kick.com/mi-canal). Devuelve "" si no es válido.
+ */
+export function cleanKickChannel(channel: string): string {
+  const clean = channel.trim().replace(/^https?:\/\/(www\.)?kick\.com\//i, "").replace(/^@/, "").replace(/[/?#].*$/, "").toLowerCase().replaceAll("_", "-");
+  return /^[a-z0-9-]{1,30}$/.test(clean) ? clean : "";
+}
+
 export function validateConfig(value: unknown, base: Config = defaultConfig()): Config {
   const root = asObject(value);
   const platforms = asObject(root.platforms);
   const twitch = asObject(platforms.twitch);
   const tiktok = asObject(platforms.tiktok);
+  const kick = asObject(platforms.kick);
   const window = asObject(root.window);
   const tags = asObject(root.tags);
 
@@ -110,7 +121,10 @@ export function validateConfig(value: unknown, base: Config = defaultConfig()): 
         eulerKey: asText(tiktok.eulerKey, base.platforms.tiktok.eulerKey, 500),
       },
       youtube: { enabled: asBoolean(asObject(platforms.youtube).enabled, base.platforms.youtube.enabled) },
-      kick: { enabled: asBoolean(asObject(platforms.kick).enabled, base.platforms.kick.enabled) },
+      kick: {
+        enabled: asBoolean(kick.enabled, base.platforms.kick.enabled),
+        channel: typeof kick.channel === "string" ? cleanKickChannel(kick.channel) : base.platforms.kick.channel,
+      },
     },
     window: {
       alwaysOnTop: asBoolean(window.alwaysOnTop, base.window.alwaysOnTop),

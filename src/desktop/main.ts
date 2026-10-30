@@ -9,9 +9,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { startApp, type RunningApp } from "../app.ts";
 import type { Config } from "../core/config.ts";
+import { setKickPageOpener } from "../kick/page.ts";
 import { setUrlOpener } from "../open-url.ts";
 import { APP_ROOT } from "../paths.ts";
 import { DATA_DIR, setSecretCodec } from "../storage.ts";
+import { openKickPage } from "./kick-page.ts";
 
 const PORT = Number(process.env.PORT) || 4848;
 const WINDOW_FILE = join(DATA_DIR, "window.json");
@@ -50,6 +52,8 @@ async function start(): Promise<void> {
   }
   // Los inicios de sesión se abren en el navegador normal del usuario.
   setUrlOpener((url) => void shell.openExternal(url));
+  // Kick se lee desde su chat emergente, en una ventana oculta (ver kick-page.ts).
+  setKickPageOpener(openKickPage);
 
   try {
     running = await startApp({ port: PORT, demoMode: process.argv.includes("--demo") });

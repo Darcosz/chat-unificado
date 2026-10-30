@@ -8,6 +8,7 @@ import { PLATFORMS, type Platform } from "./core/event.ts";
 import { STATUS_TEXT } from "./core/protocol.ts";
 import { applyRules, type RuleContext } from "./core/rules.ts";
 import { DemoConnector } from "./connectors/demo.ts";
+import { KickConnector } from "./connectors/kick.ts";
 import { TikTokConnector } from "./connectors/tiktok.ts";
 import { TwitchConnector, type TwitchAlertsOptions } from "./connectors/twitch.ts";
 import { YouTubeConnector } from "./connectors/youtube.ts";
@@ -74,6 +75,7 @@ export class ConnectorManager {
       account?.displayName ?? "",
       config.platforms.tiktok.username,
       this.#googleAuth.account?.title ?? "",
+      config.platforms.kick.channel,
     ].filter(Boolean);
     return { ownNames, mentionNames: [...ownNames, ...config.tags.mentions] };
   }
@@ -100,7 +102,12 @@ export class ConnectorManager {
       return { key: `youtube:${youtubeAccount.channelId}`, create: () => new YouTubeConnector(this.#googleAuth) };
     }
 
-    // Kick llega en su fase. Mientras, en modo demo se simula (igual que las plataformas sin cuenta).
+    const kickChannel = config.platforms.kick.channel;
+    if (platform === "kick" && kickChannel) {
+      return { key: `kick:${kickChannel}`, create: () => new KickConnector(kickChannel) };
+    }
+
+    // En modo demo se simulan las plataformas sin cuenta configurada.
     if (this.#demoMode) return { key: "demo", create: () => new DemoConnector(platform) };
     return undefined;
   }
