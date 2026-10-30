@@ -1,0 +1,11 @@
+{
+  // Compila el backend y el proceso principal de Electron a dist/backend para empaquetarlos.
+  // En desarrollo con Node no hace falta: Node 24 ejecuta los .ts directamente.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/backend"
+  },
+  "include": ["src"],
+  "exclude": ["src/ui", "src/**/*.test.ts"]
+}

@@ -5,13 +5,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { APP_ROOT } from "./paths.ts";
 import { WebSocket, WebSocketServer } from "ws";
 import type { PublicConfig } from "./core/config.ts";
 import { PLATFORMS, isChat, type ChatEvent, type Platform } from "./core/event.ts";
 import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState, type YouTubeState } from "./core/protocol.ts";
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const ROOT = APP_ROOT;
 
 /** Prefijo de la URL → carpeta del proyecto de la que se sirve. Se revisan en orden. */
 const STATIC_DIRS: [prefix: string, dir: string][] = [

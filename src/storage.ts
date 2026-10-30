@@ -23,6 +23,44 @@ async function readJson(file: string): Promise<unknown> {
   }
 }
 
+// ---------- Cifrado de secretos ----------
+// La app de escritorio registra un codificador basado en safeStorage de Electron (en Windows,
+// la protección de datos del propio sistema: solo tu usuario de Windows puede descifrarlo).
+// Sin codificador (al correr con Node, en desarrollo) los secretos se guardan como antes.
+
+export interface SecretCodec {
+  encrypt(text: string): Promise<string>;
+  decrypt(text: string): Promise<string>;
+}
+
+let codec: SecretCodec | undefined;
+
+export function setSecretCodec(secretCodec: SecretCodec): void {
+  codec = secretCodec;
+}
+
+/** Envuelve un valor secreto para guardarlo: { encrypted } si hay codificador, tal cual si no. */
+async function seal(value: unknown): Promise<unknown> {
+  return codec ? { encrypted: await codec.encrypt(JSON.stringify(value)) } : value;
+}
+
+/** Lo contrario de seal. Los archivos viejos sin cifrar se leen igual (se cifran al volver a guardarse). */
+async function unseal(raw: unknown): Promise<unknown> {
+  if (typeof raw !== "object" || raw === null || !("encrypted" in raw)) return raw;
+  if (!codec) {
+    console.error("Hay datos cifrados por la app de escritorio; con Node no se pueden leer.");
+    return undefined;
+  }
+  try {
+    return JSON.parse(await codec.decrypt(String((raw as { encrypted: unknown }).encrypted)));
+  } catch {
+    console.error("No se pudieron descifrar los datos guardados; habrá que volver a conectarse.");
+    return undefined;
+  }
+}
+
+const ENCRYPTED_PREFIX = "enc:";
+
 let queue: Promise<void> = Promise.resolve();
 
 /** Guarda en orden y de forma atómica (archivo temporal + renombrar) para no dejar un JSON a medias. */
@@ -39,11 +77,24 @@ function writeJson(file: string, value: unknown): Promise<void> {
 
 export async function loadConfig(): Promise<Config> {
   const value = await readJson(CONFIG_FILE);
-  return value === undefined ? defaultConfig() : validateConfig(value);
+  if (value === undefined) return defaultConfig();
+  // La clave de Euler va cifrada dentro de la configuración ("enc:...").
+  const tiktok = (value as { platforms?: { tiktok?: { eulerKey?: unknown } } }).platforms?.tiktok;
+  if (tiktok && typeof tiktok.eulerKey === "string" && tiktok.eulerKey.startsWith(ENCRYPTED_PREFIX)) {
+    const key = await unseal({ encrypted: tiktok.eulerKey.slice(ENCRYPTED_PREFIX.length) });
+    tiktok.eulerKey = typeof key === "string" ? key : "";
+  }
+  return validateConfig(value);
 }
 
-export function saveConfig(config: Config): Promise<void> {
-  return writeJson(CONFIG_FILE, config);
+export async function saveConfig(config: Config): Promise<void> {
+  const { eulerKey } = config.platforms.tiktok;
+  if (!codec || !eulerKey) return writeJson(CONFIG_FILE, config);
+  const sealed = ((await seal(eulerKey)) as { encrypted: string }).encrypted;
+  return writeJson(CONFIG_FILE, {
+    ...config,
+    platforms: { ...config.platforms, tiktok: { ...config.platforms.tiktok, eulerKey: ENCRYPTED_PREFIX + sealed } },
+  });
 }
 
 export interface TwitchSession {
@@ -58,7 +109,7 @@ export interface TwitchSession {
 }
 
 export async function loadTwitchSession(): Promise<TwitchSession | undefined> {
-  const value = (await readJson(TWITCH_SESSION_FILE)) as Partial<TwitchSession> | undefined;
+  const value = (await unseal(await readJson(TWITCH_SESSION_FILE))) as Partial<TwitchSession> | undefined;
   const valid =
     value &&
     typeof value.accessToken === "string" &&
@@ -78,8 +129,8 @@ export async function loadTwitchSession(): Promise<TwitchSession | undefined> {
   };
 }
 
-export function saveTwitchSession(session: TwitchSession): Promise<void> {
-  return writeJson(TWITCH_SESSION_FILE, session);
+export async function saveTwitchSession(session: TwitchSession): Promise<void> {
+  return writeJson(TWITCH_SESSION_FILE, await seal(session));
 }
 
 /** Tokens de Google para YouTube. Va aparte de la configuración porque es un secreto. */
@@ -95,7 +146,7 @@ export interface YouTubeSession {
 }
 
 export async function loadYouTubeSession(): Promise<YouTubeSession | undefined> {
-  const value = (await readJson(YOUTUBE_SESSION_FILE)) as Partial<YouTubeSession> | undefined;
+  const value = (await unseal(await readJson(YOUTUBE_SESSION_FILE))) as Partial<YouTubeSession> | undefined;
   const valid =
     value &&
     typeof value.accessToken === "string" &&
@@ -106,8 +157,8 @@ export async function loadYouTubeSession(): Promise<YouTubeSession | undefined> 
   return valid ? (value as YouTubeSession) : undefined;
 }
 
-export function saveYouTubeSession(session: YouTubeSession): Promise<void> {
-  return writeJson(YOUTUBE_SESSION_FILE, session);
+export async function saveYouTubeSession(session: YouTubeSession): Promise<void> {
+  return writeJson(YOUTUBE_SESSION_FILE, await seal(session));
 }
 
 export function deleteYouTubeSession(): Promise<void> {

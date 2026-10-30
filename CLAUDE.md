@@ -20,7 +20,7 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - El código va en inglés: nombres de archivos, variables, funciones, tipos, clases CSS, atributos `data-*` y claves de configuración. Los comentarios del código siguen en español, igual que todo lo que ve el usuario (textos de la interfaz y mensajes de consola).
 - Sistema operativo de desarrollo: Windows.
 - Evitar dependencias con módulos nativos (no hay Python ni herramientas de compilación de Visual Studio instaladas).
-- Nunca incluir secretos en el código ni en el instalador. Claves y tokens van en un archivo `.env` (incluido en `.gitignore`) o en el almacenamiento local de la app.
+- Nunca incluir secretos en el código ni en el repositorio. Las credenciales de las apps públicas (Client ID de Twitch, y Client ID y secreto del cliente de escritorio de Google, que Google no considera confidencial) **sí van integradas en el instalador** (decidido con el usuario, sabiendo que el `.exe` se publica en releases públicas y se puede extraer; el peor caso es crear credenciales nuevas y publicar una versión). Nunca se integran tokens de usuario ni claves con límite de uso (como la de Euler), que se guardan cifradas en el almacenamiento local de la app.
 - Login con flujos para apps públicas: PKCE o Device Code en Twitch, PKCE en Kick, cliente de escritorio en Google.
 - Las conexiones deben reconectarse solas y reportar su estado a la interfaz.
 - Se trabaja **una plataforma a la vez**, en este orden: Twitch → TikTok → YouTube → Kick. No se empieza la siguiente hasta terminar la actual.
@@ -45,13 +45,28 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - Login con Google (cliente de escritorio) y chat con `liveChatMessages.streamList`, cuidando la cuota.
 - Alertas de Super Chats y membresías.
 
-**Fase 4 — Kick**
-- Login con PKCE y chat y alertas por el WebSocket de Pusher.
+**Fase 4 — Kick** (después de la fase 5)
+- Sin login. Chat y alertas leyendo el chat emergente de Kick en una ventana oculta de Electron (Cloudflare bloquea las peticiones que no vienen de un navegador). Canal configurable en su tarjeta.
 
-**Fase 5 — Empaquetado**
+**Fase 5 — Empaquetado** (hecha)
 - Electron: ventana flotante, bandeja, instalador `.exe` y actualizaciones automáticas.
 
 ## Fase actual
+
+**Fase 5 — Empaquetado con Electron, hecha** (se adelantó a Kick: Kick necesita el navegador integrado de Electron, ver más abajo).
+
+- Electron 45 (trae Node 24.22, el mismo que usamos) + `electron-builder` 26 (instalador NSIS de un clic, por usuario) + `electron-updater` (releases de GitHub `Darcosz/chat-unificado`).
+- El arranque está en `src/app.ts` (`startApp`), común a la consola (`src/main.ts`) y a la app de escritorio (`src/desktop/main.ts`). El backend corre **dentro del proceso principal de Electron** (sin un Node aparte).
+- `src/desktop/main.ts`: una sola copia (si se abre otra, se enfoca la primera), ventana 860 × 820 que recuerda posición y tamaño (`window.json`), sin menú, icono en la bandeja (Mostrar / Salir), cerrar la ventana cierra la app. Aplica al momento "siempre encima" (nivel `floating`), opacidad e "iniciar con Windows" (solo en la app instalada). La ventana no puede navegar fuera de localhost; los enlaces https se abren en el navegador del sistema (`setUrlOpener` → `shell.openExternal`).
+- **Secretos cifrados** con `safeStorage` asíncrono (protección de datos de Windows): sesiones de Twitch y YouTube (`{ "encrypted": ... }`) y la clave de Euler (`"enc:..."` dentro de `config.json`). Los archivos viejos sin cifrar se leen y se cifran al volver a guardarse. **Con Node (`npm run server`) no se pueden leer los datos cifrados**: ese modo es solo para desarrollo.
+- **Credenciales:** al compilar, `scripts/embed-credentials.mjs` toma `TWITCH_CLIENT_ID`, `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` del `.env` del proyecto y los escribe en `dist/credentials.json` (ignorado por git), que va dentro del instalador. Así, al instalar o reinstalar solo hay que conectar las cuentas. Prioridad: `%APPDATA%\chat-unificado\.env` (para cambiarlas sin reinstalar) → `.env` del proyecto → integradas. Comprobado: la app empaquetada sin ningún `.env` tiene disponibles los logins de Twitch y YouTube.
+- `src/paths.ts` (`APP_ROOT`) encuentra la carpeta de la app tanto en `src/` como dentro de `app.asar`. El backend se compila con `tsconfig.backend.json` a `dist/backend` y se copia el `.proto` de YouTube.
+- Icono propio en `assets/icon.png` (256 × 256: burbuja de chat con los cuatro colores de plataforma).
+- Comandos: `npm start` (app de escritorio), `npm run start:demo`, `npm run server` / `npm run demo` (solo backend con Node, para el navegador), `npm run dist` (instalador en `release/`).
+- Medido: app empaquetada con Twitch conectado, **~240 MB de memoria privada y 0,4-0,8 % de un núcleo de CPU**. Instalador de 118,5 MB.
+- Actualizaciones: para publicar una versión se sube a una release de GitHub (etiqueta `vX.Y.Z`) el `.exe`, el `.blockmap` y `latest.yml` de `release/`; las apps instaladas con "Actualizar automáticamente" la descargan solas.
+
+Siguiente: **Fase 4 — Kick con el navegador integrado de Electron.** Kick protege con Cloudflare los datos del chat (número del chatroom y configuración en tiempo real, que ahora puede ser Pusher o Centrifugo) y bloquea a lo que no sea un navegador; esquivarlo (por ejemplo con `curl`) es saltarse una protección anti-bots y **no se hace**. El plan acordado: abrir `kick.com/popout/<canal>/chat` en una ventana oculta de Electron (un navegador real, como Social Stream Ninja) y leer de ahí los mensajes; solo si Kick está encendido y en bajo consumo. Sin login.
 
 **Fase 3 — YouTube, en pruebas.** Hecho:
 
@@ -81,7 +96,7 @@ Pendiente de la fase 3: ver en un directo real un Super Chat o una membresía (n
 
 - Compartidos: llegan con la clave `pm_mt_guidance_share` ("X shared the LIVE") y la librería los emite como `share`. Los reposts (`ttlive_repost_…`, "X reposted") la librería los emite como `social`; el conector los convierte en `share` con `detail: "repost"`. Se comprobó con un live real que la app recibe exactamente los mismos follows y compartidos que la librería directa: son poco frecuentes (unos pocos por minuto en un live grande).
 
-Pendiente de la fase 2: ver en un live un combo grande de regalos (hasta ahora solo llegaron regalos de 1).
+Combos de regalos comprobados en un live real: varios regalos seguidos salieron como una sola alerta "× 5". La fase 2 no tiene pendientes.
 
 La fase 1 (Twitch) está terminada:
 
@@ -97,7 +112,11 @@ La fase 1 (Twitch) está terminada:
 - Interfaz en `src/ui/`: `app.ts` (chat y alertas), `settings.ts` (pantalla en `#settings`), `index.html` y `styles.css`. Los `.ts` se compilan con `tsconfig.ui.json` a `dist/web`, que el servidor sirve en `/js/`.
 - Logos de plataforma en `src/ui/logos/` (PNG 64 × 64 sin fondo): en mensajes, alertas, pastillas de estado, filtros y tarjetas de configuración.
 - Opción de configuración `window.alertsSide` ("left" | "right") para poner el panel de alertas a un lado u otro del chat. En ventanas angostas las alertas van siempre arriba.
-- Comandos: `npm start` (app), `npm run demo` (app con eventos de prueba), `npm run console`, `npm run typecheck`, `npm test`.
+- Comandos (ver también la fase 5): `npm start` (app de escritorio), `npm run server` (solo backend), `npm run demo`, `npm run console`, `npm run typecheck`, `npm test`.
+
+### Uso real
+
+- 29/10/2026: stream de casi 3 horas con Twitch y TikTok a la vez, sin desconexiones y con el chat fluido. En TikTok se vio un combo de regalos agrupado ("× 5"). En Twitch todavía no llegaron follows, subs, bits ni raids.
 
 ### Pendientes de Twitch (no bloquean la fase 2)
 
@@ -106,10 +125,8 @@ La fase 1 (Twitch) está terminada:
 - Probar la reconexión tras un corte de internet. (La renovación del token ya se comprobó: la sesión de días antes entró sola.)
 - Opcional: ocultar o tachar mensajes borrados por moderadores y de usuarios baneados.
 
-### Para la fase 5 (Electron)
+### Pendientes de la fase 5
 
-- Aplicar "Siempre encima", "Iniciar con Windows" y la opacidad (ya se guardan en la configuración).
-- Cifrar la sesión de Twitch y la clave de Euler con `safeStorage` (ahora van en JSON sin cifrar, solo en la PC del usuario).
-- Incluir el Client ID de Twitch en la app para que el hermano no tenga que configurar `.env`.
-- Abrir la página de autorización con `shell.openExternal` (ahora se usa `rundll32` desde el backend, en `src/open-url.ts`).
-- Incluir `src/youtube/stream-list.proto` en el paquete (se lee en tiempo de ejecución) y los datos de Google en la app.
+- Publicar la primera release en GitHub para que funcionen las actualizaciones automáticas.
+- Medir la app durante un stream real junto a OBS y los demás programas.
+- Sin firma de código: la primera instalación muestra el aviso de SmartScreen (Más información → Ejecutar de todas formas).

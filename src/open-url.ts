@@ -4,6 +4,13 @@
 
 import { spawn } from "node:child_process";
 
+/** Quién abre las URLs. En la app de escritorio, Electron lo cambia por shell.openExternal. */
+let opener: ((url: string) => void) | undefined;
+
+export function setUrlOpener(open: (url: string) => void): void {
+  opener = open;
+}
+
 export function openInBrowser(url: string, allowedHosts: readonly string[]): void {
   let parsed: URL;
   try {
@@ -12,6 +19,10 @@ export function openInBrowser(url: string, allowedHosts: readonly string[]): voi
     return;
   }
   if (parsed.protocol !== "https:" || !allowedHosts.includes(parsed.hostname)) return;
+  if (opener) {
+    opener(url);
+    return;
+  }
 
   // rundll32 abre la URL tal cual; con "cmd /c start" el & de la URL se interpretaría como comando.
   const [command, args] =

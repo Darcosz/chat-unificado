@@ -284,10 +284,14 @@ Los cambios se guardan solos (sin botón de guardar) y se aplican al momento en 
 - **Electron + `electron-builder`:** genera un instalador `.exe` que incluye Node, el backend, la interfaz y las librerías. No hay que instalar nada manualmente. Tamaño aproximado: 100 MB.
 - **Ventana flotante:** siempre encima, icono en la bandeja del sistema, arranque con Windows opcional.
 - **Cuentas separadas:** cada usuario conecta sus cuentas desde la pantalla de configuración; los tokens se guardan localmente.
-- **Sin secretos en el instalador:** un `.exe` de Electron se puede abrir y leer. Usar flujos para apps públicas: PKCE o Device Code en Twitch, PKCE en Kick, cliente de escritorio en Google. Los Client ID sí pueden ir incluidos.
+- **Sin secretos de usuario en el instalador:** un `.exe` de Electron se puede abrir y leer. Se usan flujos para apps públicas (Device Code en Twitch, cliente de escritorio con PKCE en Google), cuyas credenciales sí van incluidas. Los tokens y la clave de Euler nunca.
 - **Clave de Euler:** cada usuario usa la suya (gratuita) para no compartir el mismo límite.
 - **Aviso de Windows SmartScreen:** sin firma digital, la primera instalación muestra un aviso; se acepta con **Más información → Ejecutar de todas formas**.
 - **Actualizaciones automáticas:** `electron-updater` con releases de GitHub; al publicar una versión nueva, las dos instalaciones se actualizan solas.
+- **Implementado (Electron 45):** el backend corre dentro del proceso principal (sin un Node aparte); instalador NSIS de un clic de ~118 MB; consumo medido ~240 MB de memoria y menos de 1 % de un núcleo de CPU.
+- **Credenciales:** el Client ID de Twitch y el cliente de escritorio de Google van integrados en el instalador (se toman del `.env` al compilar y nunca llegan al repositorio). Al instalar o reinstalar solo hay que conectar las cuentas. Como el instalador se publica en releases públicas, cualquiera podría extraerlas: el peor caso es crear credenciales nuevas y publicar una versión; las cuentas de los usuarios no se ven afectadas.
+- **Secretos cifrados:** las sesiones de Twitch y YouTube y la clave de Euler se guardan cifradas con `safeStorage` (protección de datos de Windows: solo el mismo usuario de Windows puede leerlas).
+- **Ventana:** recuerda posición y tamaño, una sola copia abierta, icono en la bandeja (Mostrar / Salir); cerrar la ventana cierra la app.
 
 ## 7. Plan de desarrollo
 
@@ -304,8 +308,8 @@ Proyecto en **TypeScript**. Se trabaja **una plataforma a la vez**, en este orde
    - Pendiente: emotes de 7TV, BTTV y FFZ.
 2. **TikTok:** conector con `tiktok-live-connector` (chat, follows y regalos), NUEVO por usuarios ya vistos, agrupación de combos de regalos y tarjeta de configuración.
 3. **YouTube:** login con Google, chat con `streamList`, Super Chats y membresías.
-4. **Kick:** login con PKCE, chat y alertas por Pusher.
-5. **Empaquetado con Electron:** ventana flotante, bandeja, instalador y actualizaciones automáticas.
+4. **Empaquetado con Electron** (se adelantó a Kick): ventana flotante, bandeja, instalador y actualizaciones automáticas. ✔
+5. **Kick:** sin login; chat leído desde el chat emergente de Kick en una ventana oculta de Electron, porque Cloudflare bloquea las peticiones que no vienen de un navegador.
 
 ## 8. Riesgos y consideraciones
 
