@@ -116,7 +116,11 @@ export class LocalServer {
   async close(): Promise<void> {
     for (const client of this.#ws.clients) client.terminate();
     await new Promise<void>((done) => this.#ws.close(() => done()));
-    await new Promise<void>((done) => this.#http.close(() => done()));
+    // close() espera a que terminen todas las conexiones, y las del navegador (keep-alive)
+    // pueden quedar abiertas para siempre: se cortan para que la app pueda cerrarse.
+    const closed = new Promise<void>((done) => this.#http.close(() => done()));
+    this.#http.closeAllConnections();
+    await closed;
   }
 
   publishEvent(event: ChatEvent): void {

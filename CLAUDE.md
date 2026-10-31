@@ -140,6 +140,6 @@ La fase 1 (Twitch) está terminada:
 
 ### Pendientes de la fase 5
 
-- Release `v0.1.0` publicada el 30/10/2026 (a mano desde la web: no hay `gh` instalado). Los archivos se suben con guiones en el nombre (`Chat-Unificado-Setup-X.Y.Z.exe` y su `.blockmap`), que es como los busca `latest.yml`; los de `release/` tienen espacios y hay que renombrarlos. Para una versión nueva: subir `version` en `package.json`, `npm run dist` y publicar una release `vX.Y.Z` (sin marcar "pre-release").
+- Releases publicadas: `v0.1.0` y `v0.2.0` (con Kick), el 30/10/2026 (a mano desde la web: no hay `gh` instalado). Los archivos se suben con guiones en el nombre (`Chat-Unificado-Setup-X.Y.Z.exe` y su `.blockmap`), que es como los busca `latest.yml`; los de `release/` tienen espacios y hay que renombrarlos. Para una versión nueva: subir `version` en `package.json`, `npm run dist` y publicar una release `vX.Y.Z` (sin marcar "pre-release").
 - Medir la app durante un stream real junto a OBS y los demás programas.
 - Sin firma de código: la primera instalación muestra el aviso de SmartScreen (Más información → Ejecutar de todas formas).

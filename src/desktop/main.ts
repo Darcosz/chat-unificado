@@ -18,6 +18,8 @@ import { openKickPage } from "./kick-page.ts";
 const PORT = Number(process.env.PORT) || 4848;
 const WINDOW_FILE = join(DATA_DIR, "window.json");
 const ICON = join(APP_ROOT, "assets", "icon.png");
+/** Tiempo máximo para desconectar las plataformas y guardar al cerrar. */
+const QUIT_TIMEOUT = 5_000;
 
 interface Bounds {
   x: number;
@@ -114,7 +116,11 @@ async function createWindow(): Promise<void> {
 }
 
 function showWindow(): void {
-  if (!window) return;
+  // Si la ventana ya no existe (por ejemplo, mientras la app se cierra), se vuelve a crear.
+  if (!window) {
+    if (!quitting && running) void createWindow().then(() => running && applyConfig(running.config()));
+    return;
+  }
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
@@ -182,10 +188,16 @@ app.on("before-quit", (event) => {
   // Se cierra con calma: se desconectan las plataformas y se guardan los usuarios vistos.
   event.preventDefault();
   quitting = true;
-  void saveBounds()
-    .then(() => running?.stop())
+  // Si algo se queda colgado al desconectar, la app se cierra igual: nunca queda viva sin ventana.
+  const timeout = new Promise<void>((done) => setTimeout(done, QUIT_TIMEOUT));
+  void Promise.race([saveBounds().then(() => running?.stop()), timeout])
     .catch(() => {})
-    .finally(() => app.quit());
+    .finally(() => {
+      // Se destruyen las ventanas que queden (la oculta de Kick no se deja cerrar sola) y se sale
+      // con quit, no con exit, para que electron-updater pueda instalar una actualización pendiente.
+      for (const remaining of BrowserWindow.getAllWindows()) remaining.destroy();
+      app.quit();
+    });
 });
 
 app.on("window-all-closed", () => {
