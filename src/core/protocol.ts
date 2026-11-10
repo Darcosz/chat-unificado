@@ -63,6 +63,13 @@ export interface YouTubeState {
   login: YouTubeLoginFlow;
 }
 
+/** Actualización de la app de escritorio (con Node no hay actualizaciones: siempre "none"). */
+export type UpdateState =
+  | { state: "none" }
+  | { state: "downloading"; version: string; percent: number }
+  /** Descargada: se instala al cerrar la app, o antes si el usuario lo pide. */
+  | { state: "ready"; version: string };
+
 export type ServerMessage =
   /** Al conectarse la interfaz: versión, configuración, estado de cada plataforma y los últimos eventos. */
   | {
@@ -73,7 +80,14 @@ export type ServerMessage =
       history: ChatEvent[];
       twitch: TwitchState;
       youtube: YouTubeState;
+      update: UpdateState;
+      /** Espectadores de cada plataforma (null si no se saben). */
+      viewers: Record<Platform, number | null>;
     }
+  /** Cambió el número de espectadores de una plataforma (null si ya no se sabe). */
+  | { type: "viewers"; platform: Platform; viewers: number | null }
+  /** Cambió el estado de la actualización de la app. */
+  | { type: "update"; update: UpdateState }
   /** Cambió la cuenta de Twitch, el paso del inicio de sesión o el estado de las alertas. */
   | { type: "twitch"; twitch: TwitchState }
   /** Cambió la cuenta de YouTube o el paso del inicio de sesión. */
@@ -101,6 +115,9 @@ export const YOUTUBE_ROUTES = {
   openLoginPage: "/api/youtube/login/open",
   logout: "/api/youtube/logout",
 } as const;
+
+/** Cierra la app e instala la actualización descargada: POST sin cuerpo. */
+export const UPDATE_INSTALL_ROUTE = "/api/update/install";
 
 /** Página a la que Google redirige tras autorizar (GET, la abre el navegador del usuario). */
 export const GOOGLE_CALLBACK_ROUTE = "/oauth/google/callback";

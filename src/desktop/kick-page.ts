@@ -118,6 +118,12 @@ export const openKickPage: KickPageOpener = (channel, handlers) => {
   void window.loadURL(url).catch(() => {});
 
   return {
+    fetchJson: async (path) => {
+      if (closed || challenge || !path.startsWith("/")) return undefined;
+      // La ruta va como texto JSON para que no pueda romper el código que se ejecuta en la página.
+      const script = `fetch(${JSON.stringify(path)}, { headers: { Accept: "application/json" } }).then((r) => (r.ok ? r.json() : undefined)).catch(() => undefined)`;
+      return contents.executeJavaScript(script).catch(() => undefined);
+    },
     reload: () => {
       if (closed) return;
       sockets.clear();

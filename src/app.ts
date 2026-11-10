@@ -11,9 +11,11 @@ import {
   GOOGLE_CALLBACK_ROUTE,
   STATUS_TEXT,
   TWITCH_ROUTES,
+  UPDATE_INSTALL_ROUTE,
   YOUTUBE_ROUTES,
   type ConnectionStatus,
   type TwitchState,
+  type UpdateState,
   type YouTubeState,
 } from "./core/protocol.ts";
 import { ConnectorManager } from "./connector-manager.ts";
@@ -29,6 +31,8 @@ export interface AppOptions {
   demoMode: boolean;
   /** Canal de Twitch a guardar si aún no hay ninguno (compatibilidad con los primeros pasos). */
   initialChannel?: string;
+  /** Cierra la app e instala la actualización descargada (solo en la app de escritorio). */
+  installUpdate?: () => void;
 }
 
 export interface RunningApp {
@@ -37,6 +41,8 @@ export interface RunningApp {
   config(): Config;
   /** Avisa cada vez que cambia la configuración (para aplicar "siempre encima", opacidad...). */
   onConfigChange(callback: (config: Config) => void): void;
+  /** Avisa a la interfaz del estado de la actualización de la app. */
+  setUpdate(update: UpdateState): void;
   stop(): Promise<void>;
 }
 
@@ -151,6 +157,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
       [YOUTUBE_ROUTES.cancelLogin]: async () => googleAuth.cancelLogin(),
       [YOUTUBE_ROUTES.openLoginPage]: async () => googleAuth.openLoginPage(),
       [YOUTUBE_ROUTES.logout]: () => googleAuth.logout(),
+      [UPDATE_INSTALL_ROUTE]: async () => options.installUpdate?.(),
     },
     pages: {
       [GOOGLE_CALLBACK_ROUTE]: (params) => googleAuth.handleCallback(params),
@@ -197,6 +204,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     version,
     config: () => config,
     onConfigChange: (callback) => configListeners.push(callback),
+    setUpdate: (update) => server.publishUpdate(update),
     stop: async () => {
       await manager.close();
       await seenUsers.flush();

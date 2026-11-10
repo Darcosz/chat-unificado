@@ -25,6 +25,8 @@ import type { YouTubeChatItem } from "../youtube/chat-item.ts";
 import { InnerTubeChat } from "../youtube/innertube.ts";
 
 const BROADCASTS_URL = "https://www.googleapis.com/youtube/v3/liveBroadcasts";
+/** Para los espectadores (liveStreamingDetails.concurrentViewers): 1 unidad de cuota por consulta. */
+const VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
 const MESSAGES_URL = "https://www.googleapis.com/youtube/v3/liveChat/messages";
 const GRPC_TARGET = "youtube.googleapis.com:443";
 const PROTO_FILE = fileURLToPath(new URL("../youtube/stream-list.proto", import.meta.url));
@@ -129,6 +131,18 @@ export class YouTubeConnector extends Connector {
     this.#client?.close();
     this.#client = undefined;
     this.setStatus("disconnected");
+  }
+
+  /** Espectadores del directo (cada minuto: ~60 unidades de cuota por hora). */
+  protected override async fetchViewers(): Promise<number | undefined> {
+    if (!this.#videoId) return undefined;
+    const params = new URLSearchParams({ part: "liveStreamingDetails", id: this.#videoId });
+    const response = await fetch(`${VIDEOS_URL}?${params}`, { headers: { Authorization: `Bearer ${await this.#auth.getAccessToken()}` } });
+    if (!response.ok) throw new Error(`YouTube respondió ${response.status}`);
+    const data = (await response.json()) as { items?: { liveStreamingDetails?: { concurrentViewers?: string } }[] };
+    // Si el canal oculta el número, no viene.
+    const viewers = Number(data.items?.[0]?.liveStreamingDetails?.concurrentViewers);
+    return Number.isFinite(viewers) ? viewers : undefined;
   }
 
   #schedule(wait: number, action: () => Promise<void>): void {

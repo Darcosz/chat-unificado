@@ -223,6 +223,15 @@ export class KickConnector extends Connector {
     this.setStatus("disconnected");
   }
 
+  /** Espectadores, de los datos del canal que da la propia web de Kick (sin directo, `livestream` es null). */
+  protected override async fetchViewers(): Promise<number | undefined> {
+    const data = (await this.#page?.fetchJson(`/api/v2/channels/${encodeURIComponent(this.channel)}`)) as
+      | { livestream?: { viewer_count?: number } | null }
+      | undefined;
+    const viewers = data?.livestream?.viewer_count;
+    return typeof viewers === "number" ? viewers : undefined;
+  }
+
   #onFrame(payload: string): void {
     if (!this.#page) return;
     this.#lastActivity = Date.now();

@@ -218,6 +218,29 @@ h1 {
 .status-pill[data-status="error"] { --dot: var(--error); }
 .status-pill[data-status="disconnected"] { opacity: 0.5; }
 
+/* Espectadores dentro de la pastilla, y la pastilla del total */
+.status-pill .viewers {
+  padding-left: 6px;
+  border-left: 1px solid var(--p-border);
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.status-pill .viewers[hidden],
+.total-viewers[hidden] {
+  display: none;
+}
+
+.total-viewers {
+  --p-border: var(--border-hover);
+  --p-name: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.total-viewers::before {
+  display: none;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -913,6 +936,32 @@ input[readonly] {
 }
 
 .notice[hidden] {
+  display: none;
+}
+
+/* ---------- Aviso de actualización ---------- */
+
+.update-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid #1f5f4a;
+  border-radius: 8px;
+  background: #0d2620;
+  color: var(--text-strong);
+  font-size: 13px;
+}
+
+.update-bar[data-state="downloading"] {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text-2);
+}
+
+.update-bar[hidden] {
   display: none;
 }
 

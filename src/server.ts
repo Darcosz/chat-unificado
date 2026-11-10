@@ -9,7 +9,7 @@ import { APP_ROOT } from "./paths.ts";
 import { WebSocket, WebSocketServer } from "ws";
 import type { PublicConfig } from "./core/config.ts";
 import { PLATFORMS, isChat, type ChatEvent, type Platform } from "./core/event.ts";
-import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState, type YouTubeState } from "./core/protocol.ts";
+import { CONFIG_ROUTE, type ConnectionStatus, type PlatformStatus, type ServerMessage, type TwitchState, type UpdateState, type YouTubeState } from "./core/protocol.ts";
 
 const ROOT = APP_ROOT;
 
@@ -62,6 +62,8 @@ export class LocalServer {
   readonly #pages: ServerOptions["pages"];
   #twitch: TwitchState;
   #youtube: YouTubeState;
+  #update: UpdateState = { state: "none" };
+  #viewers = Object.fromEntries(PLATFORMS.map((p) => [p, null])) as Record<Platform, number | null>;
 
   #http = createServer((request, response) => void this.#handle(request, response));
   #ws: WebSocketServer;
@@ -100,6 +102,8 @@ export class LocalServer {
         history,
         twitch: this.#twitch,
         youtube: this.#youtube,
+        update: this.#update,
+        viewers: this.#viewers,
       });
     });
   }
@@ -143,6 +147,18 @@ export class LocalServer {
   publishYouTube(youtube: YouTubeState): void {
     this.#youtube = youtube;
     this.#broadcast({ type: "youtube", youtube });
+  }
+
+  publishViewers(platform: Platform, viewers: number | undefined): void {
+    const value = viewers ?? null;
+    if (this.#viewers[platform] === value) return;
+    this.#viewers[platform] = value;
+    this.#broadcast({ type: "viewers", platform, viewers: value });
+  }
+
+  publishUpdate(update: UpdateState): void {
+    this.#update = update;
+    this.#broadcast({ type: "update", update });
   }
 
   /** Para cambios de configuración que no vienen de la interfaz (por ejemplo, al iniciar sesión). */

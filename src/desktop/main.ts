@@ -20,6 +20,12 @@ const WINDOW_FILE = join(DATA_DIR, "window.json");
 const ICON = join(APP_ROOT, "assets", "icon.png");
 /** Tiempo máximo para desconectar las plataformas y guardar al cerrar. */
 const QUIT_TIMEOUT = 5_000;
+/** Cada cuánto se buscan versiones nuevas con la app abierta (además de al arrancar). */
+const UPDATE_CHECK_INTERVAL = 4 * 60 * 60_000;
+/** El mismo appId del instalador (package.json): sin él, Windows descarta las notificaciones. */
+const APP_USER_MODEL_ID = "com.darcosz.chatunificado";
+
+app.setAppUserModelId(APP_USER_MODEL_ID);
 
 interface Bounds {
   x: number;
@@ -58,7 +64,7 @@ async function start(): Promise<void> {
   setKickPageOpener(openKickPage);
 
   try {
-    running = await startApp({ port: PORT, demoMode: process.argv.includes("--demo") });
+    running = await startApp({ port: PORT, demoMode: process.argv.includes("--demo"), installUpdate });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     dialog.showErrorBox("Chat Unificado", message.includes("ya está en uso") ? "La app ya está abierta (el puerto 4848 está en uso)." : message);
@@ -173,11 +179,54 @@ function applyConfig(config: Config): void {
 
 // ---------- Actualizaciones ----------
 
+let updateReady = false;
+
 function checkForUpdates(): void {
-  if (!app.isPackaged || !running?.config().autoUpdate) return;
-  // Busca una versión nueva en las releases de GitHub; si la hay, la descarga y la instala al cerrar.
-  electronUpdater.autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
-    console.error("No se pudo buscar actualizaciones:", error instanceof Error ? error.message : error);
+  if (!app.isPackaged) return;
+  const { autoUpdater } = electronUpdater;
+  // Lo que pasa con la descarga se avisa también dentro de la app, por si Windows no muestra la notificación.
+  let version = "";
+  let lastPercent = -1;
+  autoUpdater.on("update-available", (info) => {
+    version = info.version;
+    running?.setUpdate({ state: "downloading", version, percent: 0 });
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    // Solo cada 5 %, para no mandar decenas de mensajes por segundo a la interfaz.
+    const percent = Math.floor(progress.percent / 5) * 5;
+    if (percent === lastPercent || !version) return;
+    lastPercent = percent;
+    running?.setUpdate({ state: "downloading", version, percent });
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    updateReady = true;
+    running?.setUpdate({ state: "ready", version: info.version });
+  });
+  autoUpdater.on("error", (error) => {
+    console.error("Error al actualizar:", error.message);
+    if (!updateReady) running?.setUpdate({ state: "none" });
+  });
+
+  const check = () => {
+    // Una vez descargada no hace falta volver a buscar; se instala al cerrar.
+    if (updateReady || !running?.config().autoUpdate) return;
+    // Busca una versión nueva en las releases de GitHub; si la hay, la descarga y la instala al cerrar.
+    autoUpdater.checkForUpdatesAndNotify().catch((error: unknown) => {
+      console.error("No se pudo buscar actualizaciones:", error instanceof Error ? error.message : error);
+    });
+  };
+  check();
+  setInterval(check, UPDATE_CHECK_INTERVAL);
+}
+
+/** "Reiniciar y actualizar" desde la interfaz: cierra la app, instala sin preguntar y la vuelve a abrir. */
+function installUpdate(): void {
+  if (!updateReady) return;
+  quitting = true;
+  // Se desconecta con calma antes de cerrar, igual que al salir normalmente.
+  void Promise.race([saveBounds().then(() => running?.stop()), new Promise((done) => setTimeout(done, QUIT_TIMEOUT))]).finally(() => {
+    for (const remaining of BrowserWindow.getAllWindows()) remaining.destroy();
+    electronUpdater.autoUpdater.quitAndInstall(true, true);
   });
 }
 

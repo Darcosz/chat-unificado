@@ -54,6 +54,8 @@ interface TikTokEvents {
   ): unknown;
   on(event: WebcastEvent.GIFT, listener: (data: TikTokGift) => void): unknown;
   on(event: WebcastEvent.STREAM_END, listener: () => void): unknown;
+  /** Cada pocos segundos: espectadores actuales (`total`; en versiones viejas, `viewerCount`). */
+  on(event: WebcastEvent.ROOM_USER, listener: (data: { total?: string | number; viewerCount?: number }) => void): unknown;
   on(event: ControlEvent.DISCONNECTED, listener: (data: { code: number; reason?: string }) => void): unknown;
   removeAllListeners(): unknown;
 }
@@ -140,6 +142,11 @@ export class TikTokConnector extends Connector {
     });
     events(connection).on(WebcastEvent.GIFT, (data) => {
       if (current()) this.#onGift(data);
+    });
+    events(connection).on(WebcastEvent.ROOM_USER, (data) => {
+      if (!current()) return;
+      const count = Number(data.total ?? data.viewerCount);
+      if (Number.isFinite(count) && count >= 0) this.setViewers(count);
     });
     events(connection).on(WebcastEvent.STREAM_END, () => {
       if (!current()) return;

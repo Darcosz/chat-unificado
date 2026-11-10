@@ -63,7 +63,16 @@ La especificación completa (diseño, colores, integración por plataforma, arqu
 - Consumo: se bloquean imágenes, video, fuentes, Stripe y Datadog (no Cloudflare ni Google), se niegan todos los permisos (si no, arranca el servicio de cámara) y la ventana no se dibuja oculta. Medido con xQc (chat muy rápido): ~480 MB en total frente a ~210 MB sin Kick; el proceso de la página de Kick ronda 100 MB.
 - Probado con xQc en vivo: conecta solo, 47 mensajes en 40 s con emotes y NUEVO. En 20 min de captura no hubo subs, subs regaladas, hosts ni follows.
 
-Pendientes de la fase 4: ver en un directo real subs, subs regaladas y hosts (y si llegan follows); medir el consumo en un stream largo.
+Pendientes de la fase 4: ver en un directo real subs, subs regaladas y hosts; medir el consumo en un stream largo.
+
+**Espectadores por plataforma** (hecho): en cada pastilla de estado ("● Twitch | 124") y una pastilla "Total" cuando hay dos o más en vivo. Evento `viewers` del conector y mensaje `viewers` del protocolo (`null` = no se sabe). La base (`Connector.fetchViewers`) consulta cada 60 s mientras hay conexión y lo borra al desconectarse.
+- Twitch: `helix/streams?user_id=` (`viewer_count`), solo con sesión.
+- TikTok: evento `roomUser` de la librería (campo `total`; `viewerCount` en versiones viejas), sin gastar peticiones de Euler.
+- YouTube: `videos?part=liveStreamingDetails` (`concurrentViewers`), 1 unidad por minuto (~60 u/h); no viene si el canal oculta el número.
+- Kick: la ventana oculta pide `/api/v2/channels/<canal>` desde la propia página (`KickPage.fetchJson`), `livestream.viewer_count`.
+- Comprobado con xQc en Kick (9,022). **Sin comprobar en vivo:** Twitch, TikTok (el campo `total`) y YouTube.
+
+**Follows de Kick (para más adelante, decidido con el usuario):** sin sesión no llegan. Plan preferido: que el usuario inicie sesión en Kick él mismo en una ventana de la app (sesión `persist:kick`; la app nunca ve la contraseña) y leer el panel del streamer (`kick.com/dashboard/...`) en la ventana oculta. Antes de programarlo, una prueba: con la sesión iniciada, registrar los eventos del WebSocket del panel mientras alguien sigue al canal. Alternativa si no llegan: API oficial de Kick (evento `channel.followed` por webhooks), que necesita un servidor intermedio en internet.
 
 **Fase 5 — Empaquetado con Electron, hecha** (se adelantó a Kick: Kick necesita el navegador integrado de Electron, ver más abajo).
 
@@ -140,6 +149,7 @@ La fase 1 (Twitch) está terminada:
 
 ### Pendientes de la fase 5
 
-- Releases publicadas: `v0.1.0` y `v0.2.0` (con Kick), el 30/10/2026 (a mano desde la web: no hay `gh` instalado). Los archivos se suben con guiones en el nombre (`Chat-Unificado-Setup-X.Y.Z.exe` y su `.blockmap`), que es como los busca `latest.yml`; los de `release/` tienen espacios y hay que renombrarlos. Para una versión nueva: subir `version` en `package.json`, `npm run dist` y publicar una release `vX.Y.Z` (sin marcar "pre-release").
+- Releases publicadas: `v0.1.0`, `v0.2.0` (con Kick) y `v0.2.1` el 30/10/2026; `v0.2.2` (aviso de actualización y espectadores) el 09/11/2026 (a mano desde la web: no hay `gh` instalado). Los archivos se suben con guiones en el nombre (`Chat-Unificado-Setup-X.Y.Z.exe` y su `.blockmap`), que es como los busca `latest.yml`; los de `release/` tienen espacios y hay que renombrarlos. Para una versión nueva: subir `version` en `package.json`, `npm run dist` y publicar una release `vX.Y.Z` (sin marcar "pre-release").
 - Medir la app durante un stream real junto a OBS y los demás programas.
+- Aviso de actualización (hecho, sin probar con una actualización real): la 0.2.1 se instaló sola pero Windows no mostró la notificación de `checkForUpdatesAndNotify`. Ahora `app.setAppUserModelId("com.darcosz.chatunificado")` (el `appId` del instalador) y, además, una barra en el chat (`UpdateState` en `protocol.ts`, mensaje `update`): "Descargando la versión X… N %" y "Versión X lista: se instalará al cerrar la app" con el botón **Reiniciar y actualizar** (`POST /api/update/install` → `quitAndInstall(true, true)`, tras desconectar con calma). Se buscan versiones al arrancar y cada 4 h.
 - Sin firma de código: la primera instalación muestra el aviso de SmartScreen (Más información → Ejecutar de todas formas).

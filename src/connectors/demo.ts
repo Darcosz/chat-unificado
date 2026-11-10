@@ -56,6 +56,14 @@ export class DemoConnector extends Connector {
     this.setStatus("disconnected");
   }
 
+  /** Espectadores inventados, que suben y bajan un poco en cada consulta. */
+  #fakeViewers = 20 + Math.floor(Math.random() * 400);
+
+  protected override async fetchViewers(): Promise<number | undefined> {
+    this.#fakeViewers = Math.max(0, this.#fakeViewers + Math.round((Math.random() - 0.45) * 20));
+    return this.#fakeViewers;
+  }
+
   #schedule(): void {
     this.#timer = setTimeout(() => {
       this.emit("event", Math.random() < 0.85 ? this.#chat() : this.#alert());

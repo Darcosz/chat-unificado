@@ -18,6 +18,11 @@ export interface KickPageHandlers {
 }
 
 export interface KickPage {
+  /**
+   * Pide una ruta de kick.com desde la propia página (como hace ella misma) y devuelve el JSON,
+   * o undefined si no se pudo.
+   */
+  fetchJson(path: string): Promise<unknown>;
   reload(): void;
   close(): void;
 }

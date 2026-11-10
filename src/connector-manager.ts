@@ -124,6 +124,7 @@ export class ConnectorManager {
 
     if (!wanted) {
       this.#server.publishStatus(platform, "disconnected");
+      this.#server.publishViewers(platform, undefined);
       return;
     }
 
@@ -132,6 +133,7 @@ export class ConnectorManager {
       this.#server.publishStatus(platform, status, detail);
       console.log(`[${platform}] ${STATUS_TEXT[status]}${detail ? `: ${detail}` : ""}`);
     });
+    connector.on("viewers", (count) => this.#server.publishViewers(platform, count));
     connector.on("event", (event) => {
       // Si la plataforma no indica NUEVO, se calcula con los usuarios ya vistos.
       if (event.type === "chat" && !connector.reportsFirstTime) {

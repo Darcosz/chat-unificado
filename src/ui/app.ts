@@ -2,7 +2,7 @@
 // (más antiguo arriba) o en el panel de alertas (más reciente arriba).
 
 import { PLATFORMS, isChat, type ChatEvent, type ChatHighlight, type EventType, type Platform } from "../core/event.ts";
-import { STATUS_TEXT, type ConnectionStatus, type ServerMessage } from "../core/protocol.ts";
+import { STATUS_TEXT, UPDATE_INSTALL_ROUTE, type ConnectionStatus, type ServerMessage, type UpdateState } from "../core/protocol.ts";
 import { onChange, renderSettings, renderTwitch, renderYouTube, setCardStatus, setVersion } from "./settings.ts";
 
 type Filter = Platform | "all";
@@ -53,8 +53,13 @@ const footerText = $("footer-text");
 const pauseButton = $<HTMLButtonElement>("pause");
 const counter = $("counter");
 const notice = $("notice");
+const updateBar = $("update-bar");
+const updateText = $("update-text");
+const updateInstall = $<HTMLButtonElement>("update-install");
 
 const statusPills = new Map<Platform, HTMLElement>();
+const viewerCounts = new Map<Platform, HTMLElement>();
+const totalViewers = create("span", "status-pill total-viewers");
 const filterButtons = new Map<Filter, HTMLButtonElement>();
 
 let filter: Filter = "all";
@@ -104,11 +109,16 @@ function buildHeader(): void {
   for (const platform of PLATFORMS) {
     const pill = create("span", "status-pill");
     pill.dataset.platform = platform;
-    pill.append(logo(platform), NAMES[platform]);
+    const viewers = create("span", "viewers");
+    viewers.hidden = true;
+    pill.append(logo(platform), NAMES[platform], viewers);
     statuses.append(pill);
     statusPills.set(platform, pill);
+    viewerCounts.set(platform, viewers);
     setStatus(platform, "disconnected");
   }
+  totalViewers.hidden = true;
+  statuses.append(totalViewers);
 
   const filters = $("filters");
   for (const option of ["all", ...PLATFORMS] as const) {
@@ -136,6 +146,26 @@ function setStatus(platform: Platform, status: ConnectionStatus, detail?: string
   if (!pill) return;
   pill.dataset.status = status;
   pill.title = `${NAMES[platform]}: ${STATUS_TEXT[status]}${detail ? ` (${detail})` : ""}`;
+}
+
+/** Espectadores en la pastilla de cada plataforma, y el total en la pastilla del total. */
+function setViewers(platform: Platform, count: number | null): void {
+  const label = viewerCounts.get(platform);
+  if (!label) return;
+  label.hidden = count === null;
+  label.dataset.count = String(count ?? 0);
+  label.textContent = count === null ? "" : formatNumber(count);
+  label.title = count === null ? "" : `${formatNumber(count)} ${count === 1 ? "espectador" : "espectadores"}`;
+  updateTotalViewers();
+}
+
+function updateTotalViewers(): void {
+  const counts = [...viewerCounts.values()].filter((label) => !label.hidden);
+  const total = counts.reduce((sum, label) => sum + Number(label.dataset.count ?? 0), 0);
+  // El total solo tiene sentido con dos o más plataformas en vivo.
+  totalViewers.hidden = counts.length < 2;
+  totalViewers.textContent = `Total ${formatNumber(total)}`;
+  totalViewers.title = `${formatNumber(total)} espectadores en total`;
 }
 
 function selectFilter(next: Filter): void {
@@ -387,11 +417,13 @@ function receive(message: ServerMessage): void {
       renderSettings(message.config);
       renderTwitch(message.twitch);
       renderYouTube(message.youtube);
+      renderUpdate(message.update);
       chatList.replaceChildren();
       alertList.replaceChildren();
       for (const platform of PLATFORMS) {
         const { status, detail } = message.statuses[platform];
         setStatus(platform, status, detail);
+        setViewers(platform, message.viewers[platform]);
       }
       for (const event of message.history) add(event);
       updateCounter();
@@ -413,8 +445,30 @@ function receive(message: ServerMessage): void {
     case "youtube":
       renderYouTube(message.youtube);
       break;
+    case "update":
+      renderUpdate(message.update);
+      break;
+    case "viewers":
+      setViewers(message.platform, message.viewers);
+      break;
   }
 }
+
+// ---------- Actualización de la app ----------
+
+function renderUpdate(update: UpdateState): void {
+  updateBar.hidden = update.state === "none";
+  updateBar.dataset.state = update.state;
+  updateInstall.hidden = update.state !== "ready";
+  if (update.state === "downloading") updateText.textContent = `Descargando la versión ${update.version}… ${update.percent} %`;
+  if (update.state === "ready") updateText.textContent = `Versión ${update.version} lista: se instalará al cerrar la app.`;
+}
+
+updateInstall.addEventListener("click", () => {
+  updateInstall.disabled = true;
+  updateInstall.textContent = "Cerrando…";
+  void fetch(UPDATE_INSTALL_ROUTE, { method: "POST" }).catch(() => {});
+});
 
 // ---------- Preferencias y navegación ----------
 

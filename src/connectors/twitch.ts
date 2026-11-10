@@ -17,6 +17,8 @@ export interface TwitchAlertsOptions {
   onStatus: (status: ConnectionStatus, detail: string | undefined) => void;
 }
 
+const STREAMS_URL = "https://api.twitch.tv/helix/streams";
+
 export class TwitchConnector extends Connector {
   readonly platform = "twitch";
   override readonly reportsFirstTime = true;
@@ -26,9 +28,12 @@ export class TwitchConnector extends Connector {
   #alerts: TwitchEventSub | undefined;
   /** true mientras cerramos a propósito, para no confundirlo con una caída. */
   #closing = false;
+  /** Con sesión, para consultar los espectadores (la API de Twitch pide un token). */
+  readonly #account: { auth: TwitchAuth; userId: string } | undefined;
 
   constructor(channel: string, alerts?: TwitchAlertsOptions) {
     super();
+    if (alerts) this.#account = { auth: alerts.auth, userId: alerts.userId };
     this.channel = channel.trim().replace(/^#/, "").toLowerCase();
     if (!/^[a-z0-9_]{1,25}$/.test(this.channel)) {
       throw new Error(`Nombre de canal de Twitch no válido: "${channel}"`);
@@ -66,6 +71,19 @@ export class TwitchConnector extends Connector {
       this.#alerts.on("event", (event) => this.emit("event", event));
       this.#alerts.on("status", alerts.onStatus);
     }
+  }
+
+  /** Espectadores del directo del canal de la cuenta (sin sesión no se pueden consultar). */
+  protected override async fetchViewers(): Promise<number | undefined> {
+    const account = this.#account;
+    if (!account?.auth.clientId) return undefined;
+    const response = await fetch(`${STREAMS_URL}?user_id=${encodeURIComponent(account.userId)}`, {
+      headers: { "Client-Id": account.auth.clientId, Authorization: `Bearer ${await account.auth.getAccessToken()}` },
+    });
+    if (!response.ok) throw new Error(`Twitch respondió ${response.status}`);
+    const data = (await response.json()) as { data?: { viewer_count?: number }[] };
+    // Sin directo, la lista viene vacía.
+    return data.data?.[0]?.viewer_count;
   }
 
   async connect(): Promise<void> {
